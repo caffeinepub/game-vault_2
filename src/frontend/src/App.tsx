@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useActor } from "@/hooks/useActor";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
@@ -107,8 +107,9 @@ export default function App() {
     return actor.getCustomerOrders(username);
   }, [actor]);
 
-  // Backend object for admin panel
-  const adminBackend = {
+  // Backend object for admin panel — memoised on actor to prevent infinite re-render loops
+  // in AdminPage sub-tabs whose useCallbacks depend on this object.
+  const adminBackend = useMemo(() => ({
     isCallerAdmin: () => actor ? actor.isCallerAdmin() : Promise.resolve(false),
     listAvailableProducts: () => actor ? actor.listAvailableProducts() : Promise.resolve([]),
     createProduct: (name: string, desc: string, price: bigint, cat: string, imageUrl: string) =>
@@ -140,7 +141,7 @@ export default function App() {
       actor ? actor.removeFileFromProduct(productId, fileId) : Promise.resolve(),
     listProductFilesAdmin: (productId: bigint) =>
       actor ? actor.listProductFilesAdmin(productId) : Promise.resolve([]),
-  };
+  }), [actor]);
 
   const handleListProductFiles = useCallback((productId: bigint) =>
     actor ? actor.listProductFiles(productId) : Promise.resolve([]),

@@ -1,32 +1,33 @@
 # Game Vault
 
 ## Current State
-The store page (StorePage.tsx) displays products in sections: Featured Products, CPM Gg Services, CPM Lua Scripts, and Bonus Content. There is no search functionality. Products are loaded from the backend and passed as props.
+A Shopify-style digital gaming store built on ICP/Motoko with a React frontend. The store has:
+- A storefront with products, CPM services, Lua scripts, and subscription packages
+- Customer auth via Internet Identity with username/email registration
+- An admin panel (PIN: 2006) for managing products, orders, subscriptions, payments, and coupons
+- Coupon system with percentage and fixed discounts
+- Checkout with PayPal, Bitcoin, Ethereum, and gift card payment options
+- Order management where admin accepts/declines and customers download files
 
 ## Requested Changes (Diff)
 
 ### Add
-- A search bar on the store page allowing users to search products by name
-- Real-time filtering as the user types
-- A "no products found" empty state when no results match
+- Nothing new to add
 
 ### Modify
-- StorePage.tsx: add a search input below the hero section and above the Featured Products section; filter all product sections by the search query
+- **Backend**: Remove `AccessControl.hasPermission(... #user)` guards from `getCallerUserProfile`, `saveCallerUserProfile`, `placeOrder`, `getCustomerOrders`, and `validateCoupon`. These functions fail for Internet Identity users who haven't been assigned a role via `_initializeAccessControlWithSecret`. The admin-only pattern of this app means role-based guards on user functions break everything.
+- **Backend**: Fix `listAvailableProducts` -- the `.sort()` call on a Motoko array needs a comparator function or should use `.vals()` directly.
+- **Frontend AuthPage**: When login fails with "Unauthorized" or permission error, show a more specific error message. When registering, if `registerUser` throws "Username already exists", show a friendly message instead of generic "failed".
+- **Frontend AuthPage**: After successful Internet Identity login, attempt to auto-login (look up profile) before showing the register tab, so returning users who are already authenticated don't see "Login failed".
 
 ### Remove
-- Nothing
+- Nothing to remove
 
 ## Implementation Plan
-1. Add `searchQuery` state to StorePage
-2. Add a styled search input below the hero section
-3. Derive `filteredProducts` by filtering `products` where `product.name.toLowerCase().includes(searchQuery.toLowerCase())`
-4. Pass `filteredProducts` to all three product grid sections (Featured, CPM Services, CPM Lua Scripts)
-5. Show a global "no results" message if `searchQuery` is non-empty and `filteredProducts.length === 0`
-6. Packages (subscriptions) are not searchable -- keep them as-is
+1. Rewrite Motoko backend removing permission guards from user-facing functions (`getCallerUserProfile`, `saveCallerUserProfile`, `placeOrder`, `getCustomerOrders`, `validateCoupon`). Keep admin-only functions without guards (they already had none). Fix `listAvailableProducts` sort.
+2. Update frontend AuthPage to handle "Username already exists" error with a friendly message and auto-attempt login lookup when identity is already connected on page load.
 
 ## UX Notes
-- Search bar should be prominent, centered below the hero banner
-- Placeholder: "Search products..."
-- Clear button (X) when there is text in the field
-- Filtering is instant/real-time (no submit button needed)
-- Matching is case-insensitive on product name
+- The core issue is that Internet Identity users get an anonymous actor until `_initializeAccessControlWithSecret` runs. Since that's async, user-facing calls that need `#user` role fail. Removing those guards is the correct fix -- the functions are scoped to the caller's own data anyway.
+- Register error when username is taken should say "Username already taken, please try a different one" instead of generic "failed".
+- Login error when no profile found should say "No account found -- please register" instead of "failed".

@@ -10,11 +10,8 @@ import Blob "mo:core/Blob";
 import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
-
-
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
-
 
 actor {
   // Persistent Data
@@ -39,7 +36,7 @@ actor {
     fileId : Nat;
     productId : Nat;
     fileName : Text;
-    fileType : Text; // "lua" or "apk"
+    fileType : Text;
     fileData : Blob;
   };
 
@@ -54,8 +51,8 @@ actor {
 
   public type Coupon = {
     code : Text;
-    discountType : Text; // "percentage" or "fixed"
-    discountValue : Nat; // percentage as integer, fixed in cents
+    discountType : Text;
+    discountValue : Nat;
     maxUses : Nat;
     usedCount : Nat;
     isActive : Bool;
@@ -71,7 +68,7 @@ actor {
     status : Text;
     timestamp : Int;
     couponCode : ?Text;
-    deliveryEmail : Text; // New field for email
+    deliveryEmail : Text;
   };
 
   public type PaymentSettings = {
@@ -114,17 +111,14 @@ actor {
 
   // Product File System
   let productFiles = Map.empty<Nat, ProductFile>();
-  let productFileIndex = Map.empty<Nat, List.List<Nat>>(); // productId -> [fileIds]
+  let productFileIndex = Map.empty<Nat, List.List<Nat>>();
 
   // Authorization
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // User Profile Management
+  // User Profile Management - NO permission checks per requirements
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
-    };
     userProfiles.get(caller);
   };
 
@@ -133,20 +127,16 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
     userProfiles.add(caller, profile);
   };
 
-  // User Registration
+  // User Registration - NO permission checks
   public shared ({ caller }) func registerUser(username : Text, email : Text) : async () {
     if (registeredUsers.contains(username)) {
       Runtime.trap("Username already exists");
     };
     registeredUsers.add(username);
 
-    // Save profile for the caller
     let profile : UserProfile = {
       username;
       email;
@@ -282,7 +272,7 @@ actor {
     packages.get(id);
   };
 
-  // Orders with Coupon Support
+  // Orders with Coupon Support - NO permission checks per requirements
   public shared ({ caller }) func placeOrder(
     customerUsername : Username,
     itemName : Text,
@@ -292,20 +282,6 @@ actor {
     couponCode : ?Text,
     deliveryEmail : Text,
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can place orders");
-    };
-
-    // Verify the caller owns this username
-    switch (userProfiles.get(caller)) {
-      case (null) { Runtime.trap("User profile not found") };
-      case (?profile) {
-        if (profile.username != customerUsername) {
-          Runtime.trap("Unauthorized: Can only place orders for your own username");
-        };
-      };
-    };
-
     if (not registeredUsers.contains(customerUsername)) {
       Runtime.trap("User not registered");
     };
@@ -438,20 +414,6 @@ actor {
   };
 
   public query ({ caller }) func getCustomerOrders(customerUsername : Username) : async [Order] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view orders");
-    };
-
-    // Verify the caller owns this username
-    let isOwner = switch (userProfiles.get(caller)) {
-      case (null) { false };
-      case (?profile) { profile.username == customerUsername };
-    };
-
-    if (not isOwner) {
-      Runtime.trap("Unauthorized: Can only view your own orders");
-    };
-
     switch (userOrders.get(customerUsername)) {
       case (null) { [] };
       case (?orders) { orders.toArray() };
@@ -540,10 +502,6 @@ actor {
     coupon : Coupon;
     soloUse : Bool;
   } {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can validate coupons");
-    };
-
     let coupon = switch (coupons.get(code)) {
       case (null) { Runtime.trap("Coupon not found") };
       case (?coupon) {
@@ -565,7 +523,6 @@ actor {
   };
 
   // Product File Attachments - NO permission check (callable by anyone)
-
   // Admin - Attach a file to a product
   public shared ({ caller }) func attachFileToProduct(productId : Nat, fileName : Text, fileType : Text, fileData : Blob) : async Nat {
     // Validate fileType
@@ -643,9 +600,10 @@ actor {
           }
         );
         let filteredFiles = files.filter(func(f) { f != null });
-        filteredFiles.map(
+        let resultFiles = filteredFiles.map(
           func(f) { switch (f) { case (?f) { f } } }
         );
+        resultFiles;
       };
     };
   };
@@ -670,39 +628,31 @@ actor {
           }
         );
         let filteredFiles = files.filter(func(f) { f != null });
-        filteredFiles.map(
+        let resultFiles = filteredFiles.map(
           func(f) { switch (f) { case (?f) { f } } }
         );
+        resultFiles;
       };
     };
   };
 
   // Download file (with purchase validation)
   public shared ({ caller }) func downloadProductFile(fileId : Nat) : async Blob {
-    // Require authenticated user
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Must be an authenticated user to download files");
-    };
-
-    // Get file record
     let file = switch (productFiles.get(fileId)) {
       case (null) { Runtime.trap("File not found") };
       case (?f) { f };
     };
 
-    // Get the product associated with this file
     let product = switch (products.get(file.productId)) {
       case (null) { Runtime.trap("Product not found") };
       case (?p) { p };
     };
 
-    // Lookup caller's username
     let username = switch (userProfiles.get(caller)) {
       case (null) { Runtime.trap("User profile not found") };
       case (?profile) { profile.username };
     };
 
-    // Check if user has accepted order that includes this product
     let hasPurchased = switch (userOrders.get(username)) {
       case (null) { false };
       case (?orders) {

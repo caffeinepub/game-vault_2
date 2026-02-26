@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,9 +23,34 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
   const [regEmail, setRegEmail] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
+  const hasTriedAutoLogin = useRef(false);
 
   const isConnected = !!identity;
   const isConnecting = loginStatus === "logging-in";
+
+  // Auto-login: if the user already has an identity (returning session), try to look up their profile silently
+  useEffect(() => {
+    if (isInitializing || hasTriedAutoLogin.current) return;
+    if (!isConnected) return;
+    hasTriedAutoLogin.current = true;
+    setIsAutoLoggingIn(true);
+    onLoginLookup()
+      .then((profile) => {
+        if (profile) {
+          onSetUserProfile(profile);
+          toast.success(`Welcome back, ${profile.username}! 🎮`);
+          onNavigate("store");
+        }
+      })
+      .catch((err) => {
+        // Silent failure — just show normal login UI
+        console.error("Auto-login failed:", err);
+      })
+      .finally(() => {
+        setIsAutoLoggingIn(false);
+      });
+  }, [isInitializing, isConnected, onLoginLookup, onSetUserProfile, onNavigate]);
 
   const handleConnect = async () => {
     try {
@@ -61,7 +86,12 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
       onNavigate("store");
     } catch (err) {
       console.error(err);
-      toast.error("Registration failed. Please try again.");
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.toLowerCase().includes("already exists") || message.toLowerCase().includes("already taken")) {
+        toast.error("That username is already taken. Please choose a different one.");
+      } else {
+        toast.error("Registration failed. Please try again.");
+      }
     } finally {
       setIsRegistering(false);
     }
@@ -91,10 +121,15 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
     }
   };
 
-  if (isInitializing) {
+  if (isInitializing || isAutoLoggingIn) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "oklch(0.62 0.27 355)" }} />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: "oklch(0.62 0.27 355)" }} />
+          {isAutoLoggingIn && (
+            <p className="text-foreground/50 font-body text-sm">Signing you in...</p>
+          )}
+        </div>
       </div>
     );
   }
