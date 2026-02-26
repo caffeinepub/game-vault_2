@@ -1,26 +1,32 @@
 # Game Vault
 
 ## Current State
-A digital gaming store with products (game accounts + downloadable files), subscriptions, orders, coupons, payment settings, and file attachments. The backend uses an authorization module that requires callers to be registered as `#admin` via an identity-based access control system. However, the admin panel uses frontend-only PIN authentication (PIN: 2006), meaning admin backend calls are made by an anonymous or unregistered caller -- causing all admin functions to trap with "User is not registered".
+The store page (StorePage.tsx) displays products in sections: Featured Products, CPM Gg Services, CPM Lua Scripts, and Bonus Content. There is no search functionality. Products are loaded from the backend and passed as props.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Nothing new
+- A search bar on the store page allowing users to search products by name
+- Real-time filtering as the user types
+- A "no products found" empty state when no results match
 
 ### Modify
-- Remove `#admin` permission checks from all admin-facing backend functions: `createProduct`, `updateProduct`, `deleteProduct`, `createPackage`, `updatePackage`, `deletePackage`, `createCoupon`, `updateCoupon`, `deleteCoupon`, `savePaymentSettings`, `getPaymentSettings`, `attachFileToProduct`, `removeFileFromProduct`, `listProductFilesAdmin`, `listAllOrders`, `updateOrderStatus`, `listAllCoupons`
-- Keep `#user` permission checks on user-facing functions: `placeOrder`, `getCustomerOrders`, `validateCoupon`, `downloadProductFile`, `getCallerUserProfile`, `saveCallerUserProfile`
-- Keep `registerUser` as-is (no permission check needed)
-- Keep public read-only queries as-is: `listAvailableProducts`, `getProduct`, `listActivePackages`, `getPackage`, `listProductFiles`, `getUserProfile`
+- StorePage.tsx: add a search input below the hero section and above the Featured Products section; filter all product sections by the search query
 
 ### Remove
 - Nothing
 
 ## Implementation Plan
-1. Regenerate backend Motoko removing admin permission guards from admin functions while keeping user guards on user functions
-2. All data structures and logic remain identical
+1. Add `searchQuery` state to StorePage
+2. Add a styled search input below the hero section
+3. Derive `filteredProducts` by filtering `products` where `product.name.toLowerCase().includes(searchQuery.toLowerCase())`
+4. Pass `filteredProducts` to all three product grid sections (Featured, CPM Services, CPM Lua Scripts)
+5. Show a global "no results" message if `searchQuery` is non-empty and `filteredProducts.length === 0`
+6. Packages (subscriptions) are not searchable -- keep them as-is
 
 ## UX Notes
-- Admin authentication is handled entirely in the frontend via PIN 2006
-- No visible change to the user -- products, subscriptions, coupons will now successfully create/update/delete
+- Search bar should be prominent, centered below the hero banner
+- Placeholder: "Search products..."
+- Clear button (X) when there is text in the field
+- Filtering is instant/real-time (no submit button needed)
+- Matching is case-insensitive on product name

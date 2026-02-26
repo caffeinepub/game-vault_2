@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ShoppingBag, Gamepad2, Download, Star, ChevronRight, Zap, Car, Code } from "lucide-react";
+import { ShoppingBag, Gamepad2, Download, Star, ChevronRight, Zap, Car, Code, Search, X } from "lucide-react";
 import type { Page, CheckoutItem } from "@/types";
 import type { Product, Package } from "@/backend.d";
 
@@ -47,9 +47,15 @@ export function StorePage({
   onSelectCheckoutItem,
   userProfile,
 }: StorePageProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, []);
+
+  const filteredProducts = products.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen">
@@ -97,6 +103,65 @@ export function StorePage({
       </section>
 
       <div className="container mx-auto px-4 py-12">
+        {/* Search bar */}
+        <div className="flex justify-center mb-10">
+          <div
+            className="relative w-full max-w-lg"
+            style={{ animation: "fade-in-up 0.5s 0.2s ease-out both" }}
+          >
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: "oklch(0.62 0.27 355 / 0.7)" }}
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search products..."
+              className="w-full pl-11 pr-10 py-3 rounded-xl font-body text-sm text-foreground placeholder:text-foreground/40 outline-none transition-all duration-200"
+              style={{
+                background: "oklch(0.14 0.05 285 / 0.85)",
+                border: "1px solid oklch(0.62 0.27 355 / 0.2)",
+                backdropFilter: "blur(12px)",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.border = "1px solid oklch(0.62 0.27 355 / 0.6)";
+                e.currentTarget.style.boxShadow = "0 0 0 3px oklch(0.62 0.27 355 / 0.12), 0 0 20px oklch(0.62 0.27 355 / 0.1)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.border = "1px solid oklch(0.62 0.27 355 / 0.2)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors hover:bg-white/10"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5 text-foreground/50" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* No results message */}
+        {searchQuery && filteredProducts.length === 0 && !isLoadingProducts && (
+          <div
+            className="glass-card p-12 text-center mb-16"
+            style={{ animation: "fade-in 0.3s ease-out both" }}
+          >
+            <div className="text-5xl mb-4">🔍</div>
+            <h3 className="font-body font-bold text-foreground text-lg mb-2">
+              No products found
+            </h3>
+            <p className="text-foreground/50 font-body text-sm">
+              No products found for &ldquo;<span style={{ color: "oklch(0.7 0.22 45)" }}>{searchQuery}</span>&rdquo;
+            </p>
+          </div>
+        )}
+
         {/* Products section */}
         <section className="mb-16">
           <div className="flex items-center justify-between mb-8">
@@ -125,15 +190,15 @@ export function StorePage({
                 </div>
               ))}
             </div>
-          ) : products.length === 0 ? (
+          ) : filteredProducts.length === 0 && !searchQuery ? (
             <EmptyState
               icon="🎮"
               title="No products yet"
               description="The admin hasn't added any products yet. Check back soon!"
             />
-          ) : (
+          ) : filteredProducts.length === 0 ? null : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product, i) => (
+              {filteredProducts.map((product, i) => (
                 <ProductCard
                   key={product.id.toString()}
                   product={product}
@@ -184,15 +249,15 @@ export function StorePage({
                 </div>
               ))}
             </div>
-          ) : products.filter((p) => p.category === "cpm_services").length === 0 ? (
+          ) : filteredProducts.filter((p) => p.category === "cpm_services").length === 0 && !searchQuery ? (
             <EmptyState
               icon="🚗"
               title="No CPM Services yet"
               description="Check back soon for Car Parking Multiplayer services!"
             />
-          ) : (
+          ) : filteredProducts.filter((p) => p.category === "cpm_services").length === 0 ? null : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products
+              {filteredProducts
                 .filter((p) => p.category === "cpm_services")
                 .map((product, i) => (
                   <ProductCard
@@ -245,15 +310,15 @@ export function StorePage({
                 </div>
               ))}
             </div>
-          ) : products.filter((p) => p.category === "cpm_lua_scripts").length === 0 ? (
+          ) : filteredProducts.filter((p) => p.category === "cpm_lua_scripts").length === 0 && !searchQuery ? (
             <EmptyState
               icon="💻"
               title="No Lua Scripts yet"
               description="Lua scripts for Car Parking Multiplayer coming soon!"
             />
-          ) : (
+          ) : filteredProducts.filter((p) => p.category === "cpm_lua_scripts").length === 0 ? null : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products
+              {filteredProducts
                 .filter((p) => p.category === "cpm_lua_scripts")
                 .map((product, i) => (
                   <ProductCard
