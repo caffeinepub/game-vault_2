@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, CheckCircle2, Loader2, Copy, Tag, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Copy, Tag, X, ClipboardCheck, Mail } from "lucide-react";
 import { SiPaypal, SiBitcoin, SiEthereum } from "react-icons/si";
 import { toast } from "sonner";
 import { useActor } from "@/hooks/useActor";
@@ -18,7 +18,8 @@ interface CheckoutPageProps {
     price: bigint,
     paymentMethod: string,
     paymentReference: string,
-    couponCode: string | null
+    couponCode: string | null,
+    deliveryEmail: string
   ) => Promise<bigint>;
   userProfile: { username: string; email: string } | null;
 }
@@ -102,6 +103,10 @@ export function CheckoutPage({
   const [paymentRef, setPaymentRef] = useState("");
   const [isPlacing, setIsPlacing] = useState(false);
   const [orderId, setOrderId] = useState<bigint | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Delivery email state
+  const [deliveryEmail, setDeliveryEmail] = useState(userProfile?.email ?? "");
 
   // Coupon state
   const [couponInput, setCouponInput] = useState("");
@@ -170,6 +175,10 @@ export function CheckoutPage({
       toast.error("Please enter your payment reference");
       return;
     }
+    if (!deliveryEmail.trim()) {
+      toast.error("Please enter a delivery email");
+      return;
+    }
     if (!userProfile) {
       toast.error("Please log in to place an order");
       onNavigate("auth");
@@ -178,8 +187,16 @@ export function CheckoutPage({
 
     setIsPlacing(true);
     try {
-      const id = await onPlaceOrder(item.name, item.price, selectedMethod, paymentRef.trim(), appliedCoupon?.code ?? null);
+      const id = await onPlaceOrder(item.name, item.price, selectedMethod, paymentRef.trim(), appliedCoupon?.code ?? null, deliveryEmail.trim());
       setOrderId(id);
+      // Save email to profile if it changed
+      if (deliveryEmail.trim() !== userProfile.email && actor) {
+        try {
+          await actor.saveCallerUserProfile({ username: userProfile.username, email: deliveryEmail.trim() });
+        } catch (saveErr) {
+          console.error("Failed to save email to profile:", saveErr);
+        }
+      }
       toast.success("Order placed successfully!");
     } catch (err) {
       console.error(err);
@@ -189,9 +206,13 @@ export function CheckoutPage({
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, fieldKey?: string) => {
     void navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard!");
+    if (fieldKey) {
+      setCopiedField(fieldKey);
+      setTimeout(() => setCopiedField(null), 2000);
+    }
   };
 
   const selectedOption = PAYMENT_OPTIONS.find((o) => o.id === selectedMethod);
@@ -227,7 +248,7 @@ export function CheckoutPage({
           </p>
 
           <div
-            className="rounded-lg p-4 mb-6"
+            className="rounded-lg p-4 mb-4"
             style={{ background: "oklch(0.7 0.22 45 / 0.1)", border: "1px solid oklch(0.7 0.22 45 / 0.3)" }}
           >
             <p className="text-foreground/80 font-body text-sm leading-relaxed">
@@ -236,6 +257,19 @@ export function CheckoutPage({
               Our team will review your order and email you the digital content once approved.
             </p>
           </div>
+
+          {deliveryEmail && (
+            <div
+              className="rounded-lg p-3 mb-6 flex items-center gap-2"
+              style={{ background: "oklch(0.55 0.2 240 / 0.1)", border: "1px solid oklch(0.55 0.2 240 / 0.3)" }}
+            >
+              <Mail className="w-4 h-4 shrink-0" style={{ color: "oklch(0.65 0.2 240)" }} />
+              <p className="text-foreground/70 font-body text-xs">
+                Your order details will be sent to:{" "}
+                <span className="font-semibold" style={{ color: "oklch(0.75 0.18 240)" }}>{deliveryEmail}</span>
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             <Button
@@ -305,6 +339,23 @@ export function CheckoutPage({
                 {formatPrice(discountedPrice)}
               </span>
             </div>
+          </div>
+
+          {/* Delivery email input */}
+          <div className="border-t pt-4 mt-4" style={{ borderColor: "oklch(0.25 0.06 285)" }}>
+            <p className="font-body text-xs text-foreground/50 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5" />
+              Delivery Email <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
+            </p>
+            <p className="font-body text-xs text-foreground/40 mb-2">We'll send your order details to this address</p>
+            <Input
+              type="email"
+              value={deliveryEmail}
+              onChange={(e) => setDeliveryEmail(e.target.value)}
+              placeholder="your@email.com"
+              className="font-body"
+              style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }}
+            />
           </div>
 
           {/* Coupon input */}
@@ -416,31 +467,103 @@ export function CheckoutPage({
             <div
               className="glass-card p-5 mb-6"
               style={{
-                borderColor: `${selectedOption?.color.split(")")[0]} / 0.3)`,
+                borderColor: `${selectedOption?.color.split(")")[0]} / 0.4)`,
                 animation: "fade-in 0.3s ease-out both",
+                boxShadow: `0 0 20px ${selectedOption?.color.split(")")[0]} / 0.1)`,
               }}
             >
-              <h3 className="font-body font-semibold text-foreground mb-3 flex items-center gap-2">
+              <h3 className="font-body font-semibold text-foreground mb-1 flex items-center gap-2">
                 {selectedOption?.icon}
-                Payment Details
+                {selectedMethod === "paypal" ? "Send payment to this PayPal account:" :
+                 selectedMethod === "bitcoin" ? "Send Bitcoin to this address:" :
+                 selectedMethod === "ethereum" ? "Send Ethereum to this address:" :
+                 "Payment Instructions:"}
               </h3>
-              <div
-                className="rounded-lg p-3 flex items-center justify-between gap-3"
-                style={{ background: "oklch(0.1 0.03 285)" }}
-              >
-                <code className="font-body text-sm text-foreground/80 break-all">{paymentDetails}</code>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(paymentDetails)}
-                  className="shrink-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors"
-                  title="Copy"
-                >
-                  <Copy className="w-4 h-4 text-foreground/50" />
-                </button>
-              </div>
-              <p className="text-foreground/50 font-body text-xs mt-2">
-                Send your payment to the above address/email, then enter the transaction ID or code below.
-              </p>
+
+              {(selectedMethod === "paypal" || selectedMethod === "bitcoin" || selectedMethod === "ethereum") ? (
+                <>
+                  {/* Address/username display box */}
+                  <div
+                    className="rounded-lg p-4 mt-3 mb-3 flex items-center justify-between gap-3"
+                    style={{
+                      background: "oklch(0.08 0.04 285)",
+                      border: `1px solid ${selectedOption?.color.split(")")[0]} / 0.25)`,
+                    }}
+                  >
+                    <code
+                      className="font-body text-sm break-all leading-relaxed"
+                      style={{ color: selectedOption?.color }}
+                    >
+                      {paymentDetails}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(paymentDetails, selectedMethod)}
+                      className="shrink-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors"
+                      title="Copy"
+                    >
+                      {copiedField === selectedMethod
+                        ? <ClipboardCheck className="w-4 h-4" style={{ color: "oklch(0.65 0.2 145)" }} />
+                        : <Copy className="w-4 h-4 text-foreground/50" />
+                      }
+                    </button>
+                  </div>
+
+                  {/* Prominent copy button */}
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(paymentDetails, `${selectedMethod}-btn`)}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg py-3 font-body font-semibold text-sm transition-all active:scale-95"
+                    style={{
+                      background: copiedField === `${selectedMethod}-btn`
+                        ? "oklch(0.55 0.2 145 / 0.2)"
+                        : `${selectedOption?.color.split(")")[0]} / 0.15)`,
+                      border: `1.5px solid ${copiedField === `${selectedMethod}-btn`
+                        ? "oklch(0.55 0.2 145 / 0.6)"
+                        : `${selectedOption?.color.split(")")[0]} / 0.5)`}`,
+                      color: copiedField === `${selectedMethod}-btn`
+                        ? "oklch(0.65 0.2 145)"
+                        : selectedOption?.color,
+                    }}
+                  >
+                    {copiedField === `${selectedMethod}-btn` ? (
+                      <>
+                        <ClipboardCheck className="w-4 h-4" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        {selectedMethod === "paypal" ? "Copy PayPal Username" :
+                         selectedMethod === "bitcoin" ? "Copy Bitcoin Address" :
+                         "Copy Ethereum Address"}
+                      </>
+                    )}
+                  </button>
+
+                  <p className="text-foreground/50 font-body text-xs mt-3">
+                    {selectedMethod === "paypal"
+                      ? `Send £${(Number(discountedPrice) / 100).toFixed(2)} to the PayPal username above, then enter your PayPal transaction ID below.`
+                      : selectedMethod === "bitcoin"
+                      ? `Send £${(Number(discountedPrice) / 100).toFixed(2)} worth of Bitcoin to the address above, then enter your transaction ID (TxID) below.`
+                      : `Send £${(Number(discountedPrice) / 100).toFixed(2)} worth of Ethereum to the address above, then enter your transaction hash below.`
+                    }
+                  </p>
+                </>
+              ) : (
+                /* Gift card instructions -- plain display */
+                <>
+                  <div
+                    className="rounded-lg p-3 mt-3"
+                    style={{ background: "oklch(0.1 0.03 285)" }}
+                  >
+                    <p className="font-body text-sm text-foreground/80 leading-relaxed">{paymentDetails}</p>
+                  </div>
+                  <p className="text-foreground/50 font-body text-xs mt-2">
+                    Follow the instructions above, then enter your gift card code below.
+                  </p>
+                </>
+              )}
             </div>
           )}
 

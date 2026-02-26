@@ -36,6 +36,7 @@ export interface Order {
     status: string;
     couponCode?: string;
     paymentMethod: string;
+    deliveryEmail: string;
     customerUsername: Username;
     orderId: bigint;
     timestamp: bigint;
@@ -81,7 +82,7 @@ export interface backendInterface {
     listAllCoupons(): Promise<Array<Coupon>>;
     listAllOrders(): Promise<Array<[Username, Array<Order>]>>;
     listAvailableProducts(): Promise<Array<Product>>;
-    placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null): Promise<bigint>;
+    placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null, deliveryEmail: string): Promise<bigint>;
     registerUser(username: string, email: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     savePaymentSettings(settings: PaymentSettings): Promise<void>;

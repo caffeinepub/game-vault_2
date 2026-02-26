@@ -87,11 +87,19 @@ export default function App() {
     price: bigint,
     paymentMethod: string,
     paymentReference: string,
-    couponCode: string | null
+    couponCode: string | null,
+    deliveryEmail: string
   ): Promise<bigint> => {
     if (!actor) throw new Error("Not connected");
     if (!userProfile) throw new Error("Not logged in");
-    return actor.placeOrder(userProfile.username, itemName, price, paymentMethod, paymentReference, couponCode);
+    return actor.placeOrder(userProfile.username, itemName, price, paymentMethod, paymentReference, couponCode, deliveryEmail);
+  }, [actor, userProfile]);
+
+  const handleUpdateEmail = useCallback(async (newEmail: string) => {
+    if (!actor || !userProfile) return;
+    const updated = { ...userProfile, email: newEmail };
+    await actor.saveCallerUserProfile(updated);
+    setUserProfile(updated);
   }, [actor, userProfile]);
 
   const handleLoadOrders = useCallback(async (username: string): Promise<Order[]> => {
@@ -232,6 +240,7 @@ export default function App() {
               onNavigate={navigate}
               onLogout={handleLogout}
               onLoadOrders={handleLoadOrders}
+              onUpdateEmail={handleUpdateEmail}
             />
           )}
 

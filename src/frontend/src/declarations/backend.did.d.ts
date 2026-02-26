@@ -22,6 +22,7 @@ export interface Order {
   'status' : string,
   'couponCode' : [] | [string],
   'paymentMethod' : string,
+  'deliveryEmail' : string,
   'customerUsername' : Username,
   'orderId' : bigint,
   'timestamp' : bigint,
@@ -90,7 +91,7 @@ export interface _SERVICE {
   'listAllOrders' : ActorMethod<[], Array<[Username, Array<Order>]>>,
   'listAvailableProducts' : ActorMethod<[], Array<Product>>,
   'placeOrder' : ActorMethod<
-    [Username, string, bigint, string, string, [] | [string]],
+    [Username, string, bigint, string, string, [] | [string], string],
     bigint
   >,
   'registerUser' : ActorMethod<[string, string], undefined>,

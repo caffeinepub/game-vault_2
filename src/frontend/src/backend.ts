@@ -118,6 +118,7 @@ export interface Order {
     status: string;
     couponCode?: string;
     paymentMethod: string;
+    deliveryEmail: string;
     customerUsername: Username;
     orderId: bigint;
     timestamp: bigint;
@@ -164,7 +165,7 @@ export interface backendInterface {
     listAllCoupons(): Promise<Array<Coupon>>;
     listAllOrders(): Promise<Array<[Username, Array<Order>]>>;
     listAvailableProducts(): Promise<Array<Product>>;
-    placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null): Promise<bigint>;
+    placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null, deliveryEmail: string): Promise<bigint>;
     registerUser(username: string, email: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     savePaymentSettings(settings: PaymentSettings): Promise<void>;
@@ -460,17 +461,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async placeOrder(arg0: Username, arg1: string, arg2: bigint, arg3: string, arg4: string, arg5: string | null): Promise<bigint> {
+    async placeOrder(arg0: Username, arg1: string, arg2: bigint, arg3: string, arg4: string, arg5: string | null, arg6: string): Promise<bigint> {
         if (this.processError) {
             try {
-                const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3, arg4, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg5));
+                const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3, arg4, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg5), arg6);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3, arg4, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg5));
+            const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3, arg4, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg5), arg6);
             return result;
         }
     }
@@ -615,6 +616,7 @@ function from_candid_record_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint
     status: string;
     couponCode: [] | [string];
     paymentMethod: string;
+    deliveryEmail: string;
     customerUsername: _Username;
     orderId: bigint;
     timestamp: bigint;
@@ -625,6 +627,7 @@ function from_candid_record_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint
     status: string;
     couponCode?: string;
     paymentMethod: string;
+    deliveryEmail: string;
     customerUsername: Username;
     orderId: bigint;
     timestamp: bigint;
@@ -636,6 +639,7 @@ function from_candid_record_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint
         status: value.status,
         couponCode: record_opt_to_undefined(from_candid_opt_n9(_uploadFile, _downloadFile, value.couponCode)),
         paymentMethod: value.paymentMethod,
+        deliveryEmail: value.deliveryEmail,
         customerUsername: value.customerUsername,
         orderId: value.orderId,
         timestamp: value.timestamp,

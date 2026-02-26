@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Shield, ShieldCheck, Package, ShoppingBag,
   CreditCard, Plus, Trash2, Edit, Check, X, ChevronRight,
-  ArrowLeft, Save, Tag, ToggleLeft, ToggleRight
+  ArrowLeft, Save, Tag, ToggleLeft, ToggleRight, Mail
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Product, Package as BackendPackage, Order, PaymentSettings, Coupon } from "@/backend.d";
@@ -224,6 +224,17 @@ function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-body text-foreground/50">
                   <span>👤 {order.customerUsername}</span>
+                  {order.deliveryEmail && (
+                    <a
+                      href={`mailto:${order.deliveryEmail}`}
+                      className="flex items-center gap-1 hover:underline"
+                      style={{ color: "oklch(0.65 0.2 145)" }}
+                      title="Send email to customer"
+                    >
+                      <Mail className="w-3 h-3" />
+                      {order.deliveryEmail}
+                    </a>
+                  )}
                   <span style={{ color: "oklch(0.85 0.19 85)" }}>{formatPrice(order.price)}</span>
                   <span>💳 {order.paymentMethod}</span>
                   <span className="font-mono text-foreground/40 max-w-32 truncate" title={order.paymentReference}>

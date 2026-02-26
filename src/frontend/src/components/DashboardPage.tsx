@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserCircle, LogOut, ShoppingBag, Clock, Mail } from "lucide-react";
+import { UserCircle, LogOut, ShoppingBag, Clock, Mail, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Page } from "@/types";
 import type { Order, UserProfile } from "@/backend.d";
@@ -12,6 +13,7 @@ interface DashboardPageProps {
   onNavigate: (page: Page) => void;
   onLogout: () => void;
   onLoadOrders: (username: string) => Promise<Order[]>;
+  onUpdateEmail: (newEmail: string) => Promise<void>;
 }
 
 function formatPrice(pricePence: bigint): string {
@@ -77,9 +79,13 @@ function getPaymentMethodLabel(method: string): string {
   return labels[method.toLowerCase()] ?? method;
 }
 
-export function DashboardPage({ userProfile, onNavigate, onLogout, onLoadOrders }: DashboardPageProps) {
+export function DashboardPage({ userProfile, onNavigate, onLogout, onLoadOrders, onUpdateEmail }: DashboardPageProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+
+  // Email update state
+  const [emailInput, setEmailInput] = useState(userProfile.email);
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -105,6 +111,23 @@ export function DashboardPage({ userProfile, onNavigate, onLogout, onLoadOrders 
     onLogout();
     toast.success("Logged out successfully");
     onNavigate("store");
+  };
+
+  const handleSaveEmail = async () => {
+    if (!emailInput.trim()) {
+      toast.error("Email address cannot be empty");
+      return;
+    }
+    setIsSavingEmail(true);
+    try {
+      await onUpdateEmail(emailInput.trim());
+      toast.success("Email updated!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update email");
+    } finally {
+      setIsSavingEmail(false);
+    }
   };
 
   const pendingCount = orders.filter((o) => o.status.toLowerCase() === "pending").length;
@@ -161,6 +184,51 @@ export function DashboardPage({ userProfile, onNavigate, onLogout, onLoadOrders 
             >
               <LogOut className="w-4 h-4 mr-1.5" />
               Log Out
+            </Button>
+          </div>
+        </div>
+
+        {/* Update delivery email */}
+        <div
+          className="glass-card p-5 mb-6"
+          style={{ animation: "fade-in-up 0.5s 0.08s ease-out both" }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <Mail className="w-4 h-4" style={{ color: "oklch(0.62 0.27 355)" }} />
+            <h2 className="font-body font-bold text-sm text-foreground/80">Delivery Email</h2>
+          </div>
+          <p className="text-foreground/40 font-body text-xs mb-3">
+            Order details and digital content will be sent to this address.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              type="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void handleSaveEmail(); }}
+              placeholder="your@email.com"
+              className="font-body flex-1"
+              style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }}
+            />
+            <Button
+              size="sm"
+              onClick={() => void handleSaveEmail()}
+              disabled={isSavingEmail || emailInput.trim() === userProfile.email}
+              className="font-body font-semibold shrink-0"
+              style={{
+                background: "oklch(0.62 0.27 355 / 0.2)",
+                border: "1px solid oklch(0.62 0.27 355 / 0.5)",
+                color: "oklch(0.75 0.22 355)",
+              }}
+            >
+              {isSavingEmail ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-1.5" />
+                  Save
+                </>
+              )}
             </Button>
           </div>
         </div>
