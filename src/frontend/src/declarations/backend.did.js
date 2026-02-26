@@ -20,6 +20,7 @@ export const UserProfile = IDL.Record({
 export const Username = IDL.Text;
 export const Order = IDL.Record({
   'status' : IDL.Text,
+  'couponCode' : IDL.Opt(IDL.Text),
   'paymentMethod' : IDL.Text,
   'customerUsername' : Username,
   'orderId' : IDL.Nat,
@@ -53,10 +54,23 @@ export const Product = IDL.Record({
   'category' : IDL.Text,
   'price' : IDL.Nat,
 });
+export const Coupon = IDL.Record({
+  'discountValue' : IDL.Nat,
+  'code' : IDL.Text,
+  'discountType' : IDL.Text,
+  'usedCount' : IDL.Nat,
+  'isActive' : IDL.Bool,
+  'maxUses' : IDL.Nat,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'createCoupon' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Bool],
+      [],
+      [],
+    ),
   'createPackage' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Nat, IDL.Vec(IDL.Text)],
       [IDL.Nat],
@@ -67,6 +81,7 @@ export const idlService = IDL.Service({
       [IDL.Nat],
       [],
     ),
+  'deleteCoupon' : IDL.Func([IDL.Text], [], []),
   'deletePackage' : IDL.Func([IDL.Nat], [], []),
   'deleteProduct' : IDL.Func([IDL.Nat], [], []),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
@@ -82,6 +97,7 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listActivePackages' : IDL.Func([], [IDL.Vec(Package)], ['query']),
+  'listAllCoupons' : IDL.Func([], [IDL.Vec(Coupon)], ['query']),
   'listAllOrders' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(Username, IDL.Vec(Order)))],
@@ -89,13 +105,18 @@ export const idlService = IDL.Service({
     ),
   'listAvailableProducts' : IDL.Func([], [IDL.Vec(Product)], ['query']),
   'placeOrder' : IDL.Func(
-      [Username, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+      [Username, IDL.Text, IDL.Nat, IDL.Text, IDL.Text, IDL.Opt(IDL.Text)],
       [IDL.Nat],
       [],
     ),
   'registerUser' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'savePaymentSettings' : IDL.Func([PaymentSettings], [], []),
+  'updateCoupon' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Bool],
+      [],
+      [],
+    ),
   'updateOrderStatus' : IDL.Func([Username, IDL.Nat, IDL.Text], [], []),
   'updatePackage' : IDL.Func(
       [IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Vec(IDL.Text), IDL.Bool],
@@ -106,6 +127,11 @@ export const idlService = IDL.Service({
       [IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text, IDL.Bool],
       [],
       [],
+    ),
+  'validateCoupon' : IDL.Func(
+      [IDL.Text, Username],
+      [IDL.Record({ 'soloUse' : IDL.Bool, 'coupon' : Coupon })],
+      ['query'],
     ),
 });
 
@@ -121,6 +147,7 @@ export const idlFactory = ({ IDL }) => {
   const Username = IDL.Text;
   const Order = IDL.Record({
     'status' : IDL.Text,
+    'couponCode' : IDL.Opt(IDL.Text),
     'paymentMethod' : IDL.Text,
     'customerUsername' : Username,
     'orderId' : IDL.Nat,
@@ -154,10 +181,23 @@ export const idlFactory = ({ IDL }) => {
     'category' : IDL.Text,
     'price' : IDL.Nat,
   });
+  const Coupon = IDL.Record({
+    'discountValue' : IDL.Nat,
+    'code' : IDL.Text,
+    'discountType' : IDL.Text,
+    'usedCount' : IDL.Nat,
+    'isActive' : IDL.Bool,
+    'maxUses' : IDL.Nat,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'createCoupon' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Bool],
+        [],
+        [],
+      ),
     'createPackage' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Nat, IDL.Vec(IDL.Text)],
         [IDL.Nat],
@@ -168,6 +208,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Nat],
         [],
       ),
+    'deleteCoupon' : IDL.Func([IDL.Text], [], []),
     'deletePackage' : IDL.Func([IDL.Nat], [], []),
     'deleteProduct' : IDL.Func([IDL.Nat], [], []),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
@@ -183,6 +224,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listActivePackages' : IDL.Func([], [IDL.Vec(Package)], ['query']),
+    'listAllCoupons' : IDL.Func([], [IDL.Vec(Coupon)], ['query']),
     'listAllOrders' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(Username, IDL.Vec(Order)))],
@@ -190,13 +232,18 @@ export const idlFactory = ({ IDL }) => {
       ),
     'listAvailableProducts' : IDL.Func([], [IDL.Vec(Product)], ['query']),
     'placeOrder' : IDL.Func(
-        [Username, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+        [Username, IDL.Text, IDL.Nat, IDL.Text, IDL.Text, IDL.Opt(IDL.Text)],
         [IDL.Nat],
         [],
       ),
     'registerUser' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'savePaymentSettings' : IDL.Func([PaymentSettings], [], []),
+    'updateCoupon' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Bool],
+        [],
+        [],
+      ),
     'updateOrderStatus' : IDL.Func([Username, IDL.Nat, IDL.Text], [], []),
     'updatePackage' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Vec(IDL.Text), IDL.Bool],
@@ -207,6 +254,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Nat, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text, IDL.Bool],
         [],
         [],
+      ),
+    'validateCoupon' : IDL.Func(
+        [IDL.Text, Username],
+        [IDL.Record({ 'soloUse' : IDL.Bool, 'coupon' : Coupon })],
+        ['query'],
       ),
   });
 };

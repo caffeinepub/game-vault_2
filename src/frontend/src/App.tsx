@@ -86,11 +86,12 @@ export default function App() {
     itemName: string,
     price: bigint,
     paymentMethod: string,
-    paymentReference: string
+    paymentReference: string,
+    couponCode: string | null
   ): Promise<bigint> => {
     if (!actor) throw new Error("Not connected");
     if (!userProfile) throw new Error("Not logged in");
-    return actor.placeOrder(userProfile.username, itemName, price, paymentMethod, paymentReference);
+    return actor.placeOrder(userProfile.username, itemName, price, paymentMethod, paymentReference, couponCode);
   }, [actor, userProfile]);
 
   const handleLoadOrders = useCallback(async (username: string): Promise<Order[]> => {
@@ -119,6 +120,12 @@ export default function App() {
     getPaymentSettings: () => actor ? actor.getPaymentSettings() : Promise.resolve(null),
     savePaymentSettings: (settings: PaymentSettings) =>
       actor ? actor.savePaymentSettings(settings) : Promise.resolve(),
+    listAllCoupons: () => actor ? actor.listAllCoupons() : Promise.resolve([]),
+    createCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) =>
+      actor ? actor.createCoupon(code, type, value, maxUses, isActive) : Promise.resolve(),
+    updateCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) =>
+      actor ? actor.updateCoupon(code, type, value, maxUses, isActive) : Promise.resolve(),
+    deleteCoupon: (code: string) => actor ? actor.deleteCoupon(code) : Promise.resolve(),
   };
 
   // ---- Loading screen ----

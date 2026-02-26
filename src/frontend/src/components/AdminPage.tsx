@@ -8,13 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Shield, ShieldCheck, Package, ShoppingBag,
   CreditCard, Plus, Trash2, Edit, Check, X, ChevronRight,
-  ArrowLeft, Save
+  ArrowLeft, Save, Tag, ToggleLeft, ToggleRight
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Product, Package as BackendPackage, Order, PaymentSettings } from "@/backend.d";
+import type { Product, Package as BackendPackage, Order, PaymentSettings, Coupon } from "@/backend.d";
 
 interface AdminPageProps {
   onNavigate: (page: string) => void;
@@ -32,10 +33,14 @@ interface AdminPageProps {
     updateOrderStatus: (username: string, orderId: bigint, status: string) => Promise<void>;
     getPaymentSettings: () => Promise<PaymentSettings | null>;
     savePaymentSettings: (settings: PaymentSettings) => Promise<void>;
+    listAllCoupons: () => Promise<Coupon[]>;
+    createCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) => Promise<void>;
+    updateCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) => Promise<void>;
+    deleteCoupon: (code: string) => Promise<void>;
   };
 }
 
-type AdminTab = "orders" | "products" | "subscriptions" | "payments";
+type AdminTab = "orders" | "products" | "subscriptions" | "payments" | "coupons";
 type PinState = "idle" | "entered" | "verified" | "denied";
 
 const CORRECT_PIN = "2006";
@@ -851,6 +856,333 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
   );
 }
 
+// ---- Coupons Tab ----
+interface CouponFormData {
+  code: string;
+  discountType: string;
+  discountValue: string;
+  maxUses: string;
+  isActive: boolean;
+}
+
+function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingCode, setDeletingCode] = useState<string | null>(null);
+  const [togglingCode, setTogglingCode] = useState<string | null>(null);
+  const [form, setForm] = useState<CouponFormData>({
+    code: "", discountType: "percentage", discountValue: "", maxUses: "", isActive: true,
+  });
+
+  const loadCoupons = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await backend.listAllCoupons();
+      setCoupons(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load coupons");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [backend]);
+
+  useEffect(() => { void loadCoupons(); }, [loadCoupons]);
+
+  const resetForm = () => {
+    setForm({ code: "", discountType: "percentage", discountValue: "", maxUses: "", isActive: true });
+    setEditingCoupon(null);
+    setShowForm(false);
+  };
+
+  const openEdit = (coupon: Coupon) => {
+    const rawValue = coupon.discountType === "percentage"
+      ? coupon.discountValue.toString()
+      : (Number(coupon.discountValue) / 100).toFixed(2);
+    setForm({
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountValue: rawValue,
+      maxUses: coupon.maxUses === 0n ? "" : coupon.maxUses.toString(),
+      isActive: coupon.isActive,
+    });
+    setEditingCoupon(coupon);
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.code.trim()) { toast.error("Coupon code is required"); return; }
+    if (!form.discountValue || isNaN(parseFloat(form.discountValue))) { toast.error("Valid discount value is required"); return; }
+
+    const rawValue = parseFloat(form.discountValue);
+    let discountValue: bigint;
+    if (form.discountType === "percentage") {
+      if (rawValue <= 0 || rawValue > 100) { toast.error("Percentage must be between 1 and 100"); return; }
+      discountValue = BigInt(Math.round(rawValue));
+    } else {
+      if (rawValue <= 0) { toast.error("Discount amount must be greater than 0"); return; }
+      discountValue = BigInt(Math.round(rawValue * 100));
+    }
+    const maxUses = form.maxUses.trim() ? BigInt(Math.max(0, parseInt(form.maxUses, 10))) : 0n;
+    const code = form.code.trim().toUpperCase();
+
+    setIsSaving(true);
+    try {
+      if (editingCoupon) {
+        await backend.updateCoupon(code, form.discountType, discountValue, maxUses, form.isActive);
+        toast.success("Coupon updated!");
+      } else {
+        await backend.createCoupon(code, form.discountType, discountValue, maxUses, form.isActive);
+        toast.success("Coupon created!");
+      }
+      resetForm();
+      void loadCoupons();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save coupon");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (code: string) => {
+    setDeletingCode(code);
+    try {
+      await backend.deleteCoupon(code);
+      toast.success("Coupon deleted");
+      void loadCoupons();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete coupon");
+    } finally {
+      setDeletingCode(null);
+    }
+  };
+
+  const handleToggleActive = async (coupon: Coupon) => {
+    setTogglingCode(coupon.code);
+    try {
+      await backend.updateCoupon(coupon.code, coupon.discountType, coupon.discountValue, coupon.maxUses, !coupon.isActive);
+      toast.success(coupon.isActive ? "Coupon deactivated" : "Coupon activated");
+      void loadCoupons();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to toggle coupon");
+    } finally {
+      setTogglingCode(null);
+    }
+  };
+
+  const formatCouponValue = (coupon: Coupon) => {
+    if (coupon.discountType === "percentage") {
+      return `${coupon.discountValue.toString()}% off`;
+    }
+    return `£${(Number(coupon.discountValue) / 100).toFixed(2)} off`;
+  };
+
+  const inputStyle = { background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-body font-bold text-foreground">{coupons.length} Coupons</h3>
+        <Button
+          size="sm"
+          className="btn-gradient text-white font-body font-semibold"
+          onClick={() => { resetForm(); setShowForm(true); }}
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Create Coupon
+        </Button>
+      </div>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
+        <DialogContent className="font-body max-w-lg" style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}>
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl text-foreground flex items-center gap-2">
+              <Tag className="w-5 h-5" style={{ color: "oklch(0.62 0.27 355)" }} />
+              {editingCoupon ? "Edit Coupon" : "Create Coupon"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <FormField label="Coupon Code *">
+              <Input
+                value={form.code}
+                onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
+                placeholder="e.g. SAVE10"
+                disabled={!!editingCoupon}
+                style={editingCoupon ? { ...inputStyle, opacity: 0.6 } : inputStyle}
+                className="uppercase font-mono tracking-widest"
+              />
+              {!editingCoupon && (
+                <p className="text-foreground/40 font-body text-xs mt-1">Code will be uppercased automatically</p>
+              )}
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Discount Type *">
+                <Select
+                  value={form.discountType}
+                  onValueChange={(v) => setForm((p) => ({ ...p, discountType: v, discountValue: "" }))}
+                >
+                  <SelectTrigger style={inputStyle}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent style={{ background: "oklch(0.15 0.05 285)" }}>
+                    <SelectItem value="percentage">Percentage Off (%)</SelectItem>
+                    <SelectItem value="fixed">Fixed Amount Off (£)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormField>
+
+              <FormField label={`Value (${form.discountType === "percentage" ? "%" : "£"}) *`}>
+                <Input
+                  type="number"
+                  min="0"
+                  max={form.discountType === "percentage" ? "100" : undefined}
+                  step={form.discountType === "percentage" ? "1" : "0.01"}
+                  value={form.discountValue}
+                  onChange={(e) => setForm((p) => ({ ...p, discountValue: e.target.value }))}
+                  placeholder={form.discountType === "percentage" ? "e.g. 10" : "e.g. 5.00"}
+                  style={inputStyle}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Max Uses (leave blank for unlimited)">
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={form.maxUses}
+                onChange={(e) => setForm((p) => ({ ...p, maxUses: e.target.value }))}
+                placeholder="Unlimited"
+                style={inputStyle}
+              />
+            </FormField>
+
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={form.isActive}
+                onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v }))}
+              />
+              <span className="font-body text-sm text-foreground/70">
+                {form.isActive ? "Active (customers can use this coupon)" : "Inactive (coupon disabled)"}
+              </span>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={resetForm} className="font-body text-foreground/60">Cancel</Button>
+            <Button className="btn-gradient text-white font-body font-semibold" onClick={handleSave} disabled={isSaving}>
+              {isSaving
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+                : <><Save className="w-4 h-4 mr-2" />Save Coupon</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {(["a", "b", "c"] as const).map((sk) => (
+            <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+          ))}
+        </div>
+      ) : coupons.length === 0 ? (
+        <div className="glass-card p-10 text-center">
+          <Tag className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="font-body text-foreground/50 mb-4">No coupons yet</p>
+          <Button className="btn-gradient text-white font-body font-semibold" size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-1.5" />Create First Coupon
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {coupons.map((coupon) => (
+            <div key={coupon.code} className="glass-card p-4 flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "oklch(0.62 0.27 355 / 0.12)", border: "1px solid oklch(0.62 0.27 355 / 0.3)" }}
+              >
+                <Tag className="w-4 h-4" style={{ color: "oklch(0.62 0.27 355)" }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="font-mono font-bold text-sm text-foreground tracking-wider">{coupon.code}</span>
+                  <Badge
+                    className="font-body text-xs px-1.5 py-0.5"
+                    style={{
+                      background: coupon.isActive ? "oklch(0.55 0.2 145 / 0.15)" : "oklch(0.2 0.04 285 / 0.4)",
+                      color: coupon.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)",
+                      border: `1px solid ${coupon.isActive ? "oklch(0.55 0.2 145 / 0.4)" : "oklch(0.3 0.04 285)"}`,
+                    }}
+                  >
+                    {coupon.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-body text-foreground/50">
+                  <span style={{ color: "oklch(0.85 0.19 85)" }}>{formatCouponValue(coupon)}</span>
+                  <span>
+                    Used: {coupon.usedCount.toString()}{coupon.maxUses > 0n ? ` / ${coupon.maxUses.toString()}` : " (unlimited)"}
+                  </span>
+                  <span>{coupon.discountType === "percentage" ? "Percentage" : "Fixed Amount"}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Toggle active */}
+                <button
+                  type="button"
+                  onClick={() => void handleToggleActive(coupon)}
+                  disabled={togglingCode === coupon.code}
+                  className="p-2 rounded-lg hover:bg-muted/40 transition-colors"
+                  style={{ color: coupon.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)" }}
+                  title={coupon.isActive ? "Deactivate" : "Activate"}
+                >
+                  {togglingCode === coupon.code
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : coupon.isActive
+                      ? <ToggleRight className="w-4 h-4" />
+                      : <ToggleLeft className="w-4 h-4" />
+                  }
+                </button>
+                {/* Edit */}
+                <button
+                  type="button"
+                  onClick={() => openEdit(coupon)}
+                  className="p-2 rounded-lg hover:bg-muted/40 transition-colors"
+                  style={{ color: "oklch(0.62 0.27 355)" }}
+                  title="Edit"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                {/* Delete */}
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(coupon.code)}
+                  disabled={deletingCode === coupon.code}
+                  className="p-2 rounded-lg hover:bg-destructive/10 transition-colors"
+                  style={{ color: "oklch(0.7 0.25 25)" }}
+                  title="Delete"
+                >
+                  {deletingCode === coupon.code
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Trash2 className="w-4 h-4" />
+                  }
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- Helper ----
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -864,37 +1196,13 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 // ---- Main AdminPage ----
 export function AdminPage({ onNavigate, backend }: AdminPageProps) {
   const [isAuthed, setIsAuthed] = useState(false);
-  const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
 
-  const handlePinSuccess = async () => {
-    setIsCheckingAdmin(true);
-    try {
-      const isAdmin = await backend.isCallerAdmin();
-      if (isAdmin) {
-        setIsAuthed(true);
-      } else {
-        toast.error("Access Denied: Your identity does not have admin privileges.");
-        setIsAuthed(false);
-      }
-    } catch {
-      // If not logged in, still allow PIN-based access for now
-      setIsAuthed(true);
-    } finally {
-      setIsCheckingAdmin(false);
-    }
+  const handlePinSuccess = () => {
+    setIsAuthed(true);
   };
 
   if (!isAuthed) {
-    return (
-      <>
-        {isCheckingAdmin && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "oklch(0.09 0.04 285 / 0.8)", backdropFilter: "blur(4px)" }}>
-            <Loader2 className="w-10 h-10 animate-spin" style={{ color: "oklch(0.62 0.27 355)" }} />
-          </div>
-        )}
-        <PinGate onSuccess={handlePinSuccess} onCancel={() => onNavigate("store")} />
-      </>
-    );
+    return <PinGate onSuccess={handlePinSuccess} onCancel={() => onNavigate("store")} />;
   }
 
   const TAB_CONFIG: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
@@ -902,6 +1210,7 @@ export function AdminPage({ onNavigate, backend }: AdminPageProps) {
     { id: "products", label: "Products", icon: <Package className="w-4 h-4" /> },
     { id: "subscriptions", label: "Subscriptions", icon: <ChevronRight className="w-4 h-4" /> },
     { id: "payments", label: "Payments", icon: <CreditCard className="w-4 h-4" /> },
+    { id: "coupons", label: "Coupons", icon: <Tag className="w-4 h-4" /> },
   ];
 
   return (
@@ -967,6 +1276,9 @@ export function AdminPage({ onNavigate, backend }: AdminPageProps) {
             </TabsContent>
             <TabsContent value="payments">
               <PaymentSettingsTab backend={backend} />
+            </TabsContent>
+            <TabsContent value="coupons">
+              <CouponsTab backend={backend} />
             </TabsContent>
           </div>
         </Tabs>

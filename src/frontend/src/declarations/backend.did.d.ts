@@ -10,8 +10,17 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Coupon {
+  'discountValue' : bigint,
+  'code' : string,
+  'discountType' : string,
+  'usedCount' : bigint,
+  'isActive' : boolean,
+  'maxUses' : bigint,
+}
 export interface Order {
   'status' : string,
+  'couponCode' : [] | [string],
   'paymentMethod' : string,
   'customerUsername' : Username,
   'orderId' : bigint,
@@ -53,6 +62,10 @@ export type Username = string;
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'createCoupon' : ActorMethod<
+    [string, string, bigint, bigint, boolean],
+    undefined
+  >,
   'createPackage' : ActorMethod<
     [string, string, bigint, Array<string>],
     bigint
@@ -61,6 +74,7 @@ export interface _SERVICE {
     [string, string, bigint, string, string],
     bigint
   >,
+  'deleteCoupon' : ActorMethod<[string], undefined>,
   'deletePackage' : ActorMethod<[bigint], undefined>,
   'deleteProduct' : ActorMethod<[bigint], undefined>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
@@ -72,15 +86,20 @@ export interface _SERVICE {
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listActivePackages' : ActorMethod<[], Array<Package>>,
+  'listAllCoupons' : ActorMethod<[], Array<Coupon>>,
   'listAllOrders' : ActorMethod<[], Array<[Username, Array<Order>]>>,
   'listAvailableProducts' : ActorMethod<[], Array<Product>>,
   'placeOrder' : ActorMethod<
-    [Username, string, bigint, string, string],
+    [Username, string, bigint, string, string, [] | [string]],
     bigint
   >,
   'registerUser' : ActorMethod<[string, string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'savePaymentSettings' : ActorMethod<[PaymentSettings], undefined>,
+  'updateCoupon' : ActorMethod<
+    [string, string, bigint, bigint, boolean],
+    undefined
+  >,
   'updateOrderStatus' : ActorMethod<[Username, bigint, string], undefined>,
   'updatePackage' : ActorMethod<
     [bigint, string, string, bigint, Array<string>, boolean],
@@ -89,6 +108,10 @@ export interface _SERVICE {
   'updateProduct' : ActorMethod<
     [bigint, string, string, bigint, string, string, boolean],
     undefined
+  >,
+  'validateCoupon' : ActorMethod<
+    [string, Username],
+    { 'soloUse' : boolean, 'coupon' : Coupon }
   >,
 }
 export declare const idlService: IDL.ServiceClass;

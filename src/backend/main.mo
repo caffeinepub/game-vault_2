@@ -12,6 +12,8 @@ import Runtime "mo:core/Runtime";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
+
+
 actor {
   // Persistent Data
   type Username = Text;
@@ -40,6 +42,15 @@ actor {
     isActive : Bool;
   };
 
+  public type Coupon = {
+    code : Text;
+    discountType : Text; // "percentage" or "fixed"
+    discountValue : Nat; // percentage as integer, fixed in cents
+    maxUses : Nat;
+    usedCount : Nat;
+    isActive : Bool;
+  };
+
   public type Order = {
     orderId : Nat;
     customerUsername : Username;
@@ -49,6 +60,7 @@ actor {
     paymentReference : Text;
     status : Text;
     timestamp : Int;
+    couponCode : ?Text; // New field for coupon code
   };
 
   public type PaymentSettings = {
@@ -83,6 +95,10 @@ actor {
   var paymentSettings : ?PaymentSettings = null;
   let registeredUsers = Set.empty<Text>();
   let userProfiles = Map.empty<Principal, UserProfile>();
+
+  // Coupon System
+  let coupons = Map.empty<Text, Coupon>();
+  let couponUsages = Map.empty<Text, Set.Set<Username>>();
 
   // Authorization
   let accessControlState = AccessControl.initState();
@@ -288,14 +304,15 @@ actor {
     packages.get(id);
   };
 
-  // Orders
+  // Orders with Coupon Support
 
   public shared ({ caller }) func placeOrder(
     customerUsername : Username,
     itemName : Text,
     price : Nat,
     paymentMethod : Text,
-    paymentReference : Text
+    paymentReference : Text,
+    couponCode : ?Text
   ) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can place orders");
@@ -305,16 +322,24 @@ actor {
       Runtime.trap("User not registered");
     };
 
+    let finalPrice = switch (couponCode) {
+      case (null) { price };
+      case (?code) {
+        applyCoupon(customerUsername, code, price);
+      };
+    };
+
     let orderId = nextOrderId;
     let order : Order = {
       orderId;
       customerUsername;
       itemName;
-      price;
+      price = finalPrice;
       paymentMethod;
       paymentReference;
       status = "pending";
       timestamp = Time.now();
+      couponCode;
     };
 
     let existingOrders = switch (userOrders.get(customerUsername)) {
@@ -326,6 +351,65 @@ actor {
 
     nextOrderId += 1;
     orderId;
+  };
+
+  // Helper function to validate, apply, and record coupon usage
+  func applyCoupon(customerUsername : Username, code : Text, originalPrice : Nat) : Nat {
+    let coupon = switch (coupons.get(code)) {
+      case (null) { Runtime.trap("Coupon not found") };
+      case (?coupon) {
+        if (not coupon.isActive) { Runtime.trap("Coupon is not active") };
+        if (coupon.maxUses != 0 and coupon.usedCount >= coupon.maxUses) {
+          Runtime.trap("Coupon usage limit reached");
+        };
+        let users = switch (couponUsages.get(code)) {
+          case (null) { Set.empty<Username>() };
+          case (?u) { u };
+        };
+        if (users.contains(customerUsername)) {
+          Runtime.trap("Coupon already used by this customer");
+        };
+        coupon;
+      };
+    };
+
+    // Calculate discount
+    let discountedPrice = switch (coupon.discountType) {
+      case ("percentage") {
+        let percentDiscount = originalPrice * coupon.discountValue / 100;
+        if (percentDiscount > originalPrice) { 0 } else {
+          originalPrice - percentDiscount;
+        };
+      };
+      case ("fixed") {
+        if (coupon.discountValue > originalPrice) { 0 } else {
+          originalPrice - coupon.discountValue;
+        };
+      };
+      case (_) { Runtime.trap("Invalid discount type") };
+    };
+
+    // Record usage
+    let updatedCoupon = {
+      coupon with
+      usedCount = coupon.usedCount + 1;
+    };
+    coupons.add(code, updatedCoupon);
+
+    let users = switch (couponUsages.get(code)) {
+      case (null) {
+        let newSet = Set.empty<Username>();
+        newSet.add(customerUsername);
+        newSet;
+      };
+      case (?users) {
+        users.add(customerUsername);
+        users;
+      };
+    };
+    couponUsages.add(code, users);
+
+    discountedPrice;
   };
 
   public shared ({ caller }) func updateOrderStatus(customerUsername : Username, orderId : Nat, status : Text) : async () {
@@ -350,6 +434,7 @@ actor {
             paymentReference = o.paymentReference;
             status;
             timestamp = o.timestamp;
+            couponCode = o.couponCode;
           };
         } else {
           o;
@@ -408,5 +493,115 @@ actor {
     };
 
     paymentSettings;
+  };
+
+  // Coupon System
+
+  public shared ({ caller }) func createCoupon(
+    code : Text,
+    discountType : Text,
+    discountValue : Nat,
+    maxUses : Nat,
+    isActive : Bool
+  ) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can create coupons");
+    };
+
+    if (coupons.containsKey(code)) {
+      Runtime.trap("Coupon code already exists");
+    };
+
+    if (discountType != "percentage" and discountType != "fixed") {
+      Runtime.trap("Invalid discount type");
+    };
+
+    let coupon : Coupon = {
+      code;
+      discountType;
+      discountValue;
+      maxUses;
+      usedCount = 0;
+      isActive;
+    };
+
+    coupons.add(code, coupon);
+  };
+
+  public shared ({ caller }) func updateCoupon(
+    code : Text,
+    discountType : Text,
+    discountValue : Nat,
+    maxUses : Nat,
+    isActive : Bool
+  ) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update coupons");
+    };
+
+    let existing = switch (coupons.get(code)) {
+      case (null) { Runtime.trap("Coupon not found") };
+      case (?c) { c };
+    };
+
+    if (discountType != "percentage" and discountType != "fixed") {
+      Runtime.trap("Invalid discount type");
+    };
+
+    let updatedCoupon : Coupon = {
+      code;
+      discountType;
+      discountValue;
+      maxUses;
+      usedCount = existing.usedCount;
+      isActive;
+    };
+
+    coupons.add(code, updatedCoupon);
+  };
+
+  public shared ({ caller }) func deleteCoupon(code : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete coupons");
+    };
+
+    if (not coupons.containsKey(code)) {
+      Runtime.trap("Coupon not found");
+    };
+
+    coupons.remove(code);
+    couponUsages.remove(code);
+  };
+
+  public query ({ caller }) func listAllCoupons() : async [Coupon] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can list coupons");
+    };
+
+    coupons.values().toArray();
+  };
+
+  public query ({ caller }) func validateCoupon(code : Text, customerUsername : Username) : async {
+    coupon : Coupon;
+    soloUse : Bool;
+  } {
+    let coupon = switch (coupons.get(code)) {
+      case (null) { Runtime.trap("Coupon not found") };
+      case (?coupon) {
+        if (not coupon.isActive) { Runtime.trap("Coupon is not active") };
+        if (coupon.maxUses != 0 and coupon.usedCount >= coupon.maxUses) {
+          Runtime.trap("Coupon usage limit reached");
+        };
+        let users = switch (couponUsages.get(code)) {
+          case (null) { Set.empty<Username>() };
+          case (?u) { u };
+        };
+        if (users.contains(customerUsername)) {
+          Runtime.trap("Coupon already used by this customer");
+        };
+        coupon;
+      };
+    };
+    { coupon; soloUse = true };
   };
 };

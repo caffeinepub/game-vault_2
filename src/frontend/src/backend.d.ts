@@ -15,6 +15,14 @@ export interface PaymentSettings {
     amazonInstructions: string;
     paypalEmail: string;
 }
+export interface Coupon {
+    discountValue: bigint;
+    code: string;
+    discountType: string;
+    usedCount: bigint;
+    isActive: boolean;
+    maxUses: bigint;
+}
 export type Username = string;
 export interface Package {
     id: bigint;
@@ -26,6 +34,7 @@ export interface Package {
 }
 export interface Order {
     status: string;
+    couponCode?: string;
     paymentMethod: string;
     customerUsername: Username;
     orderId: bigint;
@@ -54,8 +63,10 @@ export enum UserRole {
 }
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    createCoupon(code: string, discountType: string, discountValue: bigint, maxUses: bigint, isActive: boolean): Promise<void>;
     createPackage(name: string, description: string, price: bigint, features: Array<string>): Promise<bigint>;
     createProduct(name: string, description: string, price: bigint, category: string, imageUrl: string): Promise<bigint>;
+    deleteCoupon(code: string): Promise<void>;
     deletePackage(id: bigint): Promise<void>;
     deleteProduct(id: bigint): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -67,13 +78,19 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     listActivePackages(): Promise<Array<Package>>;
+    listAllCoupons(): Promise<Array<Coupon>>;
     listAllOrders(): Promise<Array<[Username, Array<Order>]>>;
     listAvailableProducts(): Promise<Array<Product>>;
-    placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string): Promise<bigint>;
+    placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null): Promise<bigint>;
     registerUser(username: string, email: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     savePaymentSettings(settings: PaymentSettings): Promise<void>;
+    updateCoupon(code: string, discountType: string, discountValue: bigint, maxUses: bigint, isActive: boolean): Promise<void>;
     updateOrderStatus(customerUsername: Username, orderId: bigint, status: string): Promise<void>;
     updatePackage(id: bigint, name: string, description: string, price: bigint, features: Array<string>, isActive: boolean): Promise<void>;
     updateProduct(id: bigint, name: string, description: string, price: bigint, category: string, imageUrl: string, isAvailable: boolean): Promise<void>;
+    validateCoupon(code: string, customerUsername: Username): Promise<{
+        soloUse: boolean;
+        coupon: Coupon;
+    }>;
 }

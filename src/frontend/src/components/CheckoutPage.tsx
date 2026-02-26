@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, CheckCircle2, Loader2, Copy } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Copy, Tag, X } from "lucide-react";
 import { SiPaypal, SiBitcoin, SiEthereum } from "react-icons/si";
 import { toast } from "sonner";
+import { useActor } from "@/hooks/useActor";
 import type { Page, CheckoutItem } from "@/types";
 import type { PaymentSettings } from "@/backend.d";
 
@@ -16,7 +17,8 @@ interface CheckoutPageProps {
     itemName: string,
     price: bigint,
     paymentMethod: string,
-    paymentReference: string
+    paymentReference: string,
+    couponCode: string | null
   ) => Promise<bigint>;
   userProfile: { username: string; email: string } | null;
 }
@@ -95,10 +97,69 @@ export function CheckoutPage({
   onPlaceOrder,
   userProfile,
 }: CheckoutPageProps) {
+  const { actor } = useActor();
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [paymentRef, setPaymentRef] = useState("");
   const [isPlacing, setIsPlacing] = useState(false);
   const [orderId, setOrderId] = useState<bigint | null>(null);
+
+  // Coupon state
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: string; discountValue: bigint } | null>(null);
+  const [couponMessage, setCouponMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
+  // Calculate discounted price
+  const discountedPrice = (() => {
+    if (!appliedCoupon) return item.price;
+    if (appliedCoupon.discountType === "percentage") {
+      const discounted = item.price - (item.price * appliedCoupon.discountValue / 100n);
+      return discounted < 0n ? 0n : discounted;
+    }
+    const discounted = item.price - appliedCoupon.discountValue;
+    return discounted < 0n ? 0n : discounted;
+  })();
+
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) {
+      setCouponMessage({ type: "error", text: "Please enter a coupon code" });
+      return;
+    }
+    if (!userProfile) {
+      setCouponMessage({ type: "error", text: "Please log in to use coupons" });
+      return;
+    }
+    if (!actor) {
+      setCouponMessage({ type: "error", text: "Not connected to backend" });
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    setCouponMessage(null);
+    try {
+      const result = await actor.validateCoupon(code, userProfile.username);
+      const { coupon } = result;
+      setAppliedCoupon({ code: coupon.code, discountType: coupon.discountType, discountValue: coupon.discountValue });
+      const displayValue = coupon.discountType === "percentage"
+        ? `${coupon.discountValue.toString()}% off`
+        : `£${(Number(coupon.discountValue) / 100).toFixed(2)} off`;
+      setCouponMessage({ type: "success", text: `${coupon.code} applied — ${displayValue}` });
+      toast.success(`Coupon applied: ${displayValue}`);
+    } catch (err) {
+      console.error(err);
+      setAppliedCoupon(null);
+      setCouponMessage({ type: "error", text: "Invalid or expired coupon" });
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponMessage(null);
+  };
 
   const handlePlaceOrder = async () => {
     if (!selectedMethod) {
@@ -117,7 +178,7 @@ export function CheckoutPage({
 
     setIsPlacing(true);
     try {
-      const id = await onPlaceOrder(item.name, item.price, selectedMethod, paymentRef.trim());
+      const id = await onPlaceOrder(item.name, item.price, selectedMethod, paymentRef.trim(), appliedCoupon?.code ?? null);
       setOrderId(id);
       toast.success("Order placed successfully!");
     } catch (err) {
@@ -218,25 +279,93 @@ export function CheckoutPage({
 
         {/* Order summary */}
         <div
-          className="glass-card p-5 mb-8"
+          className="glass-card p-5 mb-6"
           style={{ animation: "fade-in-up 0.4s ease-out both" }}
         >
           <h2 className="font-body font-bold mb-3 text-sm uppercase tracking-widest text-foreground/50">
             Order Summary
           </h2>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-body font-semibold text-foreground text-lg">{item.name}</p>
               {item.isPackage && (
                 <p className="text-foreground/50 font-body text-xs mt-1">Monthly Bonus Package</p>
               )}
             </div>
-            <span
-              className="font-display text-2xl"
-              style={{ color: "oklch(0.85 0.19 85)", textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)" }}
-            >
-              {formatPrice(item.price)}
-            </span>
+            <div className="text-right">
+              {appliedCoupon && (
+                <p className="font-body text-sm line-through text-foreground/40 mb-0.5">
+                  {formatPrice(item.price)}
+                </p>
+              )}
+              <span
+                className="font-display text-2xl"
+                style={{ color: "oklch(0.85 0.19 85)", textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)" }}
+              >
+                {formatPrice(discountedPrice)}
+              </span>
+            </div>
+          </div>
+
+          {/* Coupon input */}
+          <div className="border-t pt-4" style={{ borderColor: "oklch(0.25 0.06 285)" }}>
+            <p className="font-body text-xs text-foreground/50 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5" />
+              Coupon Code
+            </p>
+            {appliedCoupon ? (
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-lg"
+                style={{ background: "oklch(0.55 0.2 145 / 0.12)", border: "1px solid oklch(0.55 0.2 145 / 0.35)" }}
+              >
+                <div className="flex items-center gap-2">
+                  <Tag className="w-4 h-4" style={{ color: "oklch(0.65 0.2 145)" }} />
+                  <span className="font-body font-semibold text-sm" style={{ color: "oklch(0.65 0.2 145)" }}>
+                    {appliedCoupon.code}
+                  </span>
+                  {couponMessage && (
+                    <span className="font-body text-xs text-foreground/60">{couponMessage.text}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="p-1 rounded-md hover:bg-muted/30 transition-colors"
+                  title="Remove coupon"
+                >
+                  <X className="w-4 h-4 text-foreground/50" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  value={couponInput}
+                  onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponMessage(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") void handleApplyCoupon(); }}
+                  placeholder="Enter coupon code"
+                  className="font-body uppercase"
+                  style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleApplyCoupon()}
+                  disabled={isValidatingCoupon || !couponInput.trim()}
+                  className="shrink-0 font-body font-semibold"
+                  style={{ borderColor: "oklch(0.62 0.27 355 / 0.5)", color: "oklch(0.62 0.27 355)" }}
+                >
+                  {isValidatingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
+                </Button>
+              </div>
+            )}
+            {couponMessage && !appliedCoupon && (
+              <p
+                className="font-body text-xs mt-1.5"
+                style={{ color: couponMessage.type === "error" ? "oklch(0.7 0.25 25)" : "oklch(0.65 0.2 145)" }}
+              >
+                {couponMessage.text}
+              </p>
+            )}
           </div>
         </div>
 
@@ -354,7 +483,7 @@ export function CheckoutPage({
             ) : (
               <>
                 <CheckCircle2 className="w-5 h-5 mr-2" />
-                Place Order — {formatPrice(item.price)}
+                Place Order — {formatPrice(discountedPrice)}
               </>
             )}
           </Button>
