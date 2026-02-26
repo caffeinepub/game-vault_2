@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,10 +12,16 @@ import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Shield, ShieldCheck, Package, ShoppingBag,
   CreditCard, Plus, Trash2, Edit, Check, X, ChevronRight,
-  ArrowLeft, Save, Tag, ToggleLeft, ToggleRight, Mail
+  ArrowLeft, Save, Tag, ToggleLeft, ToggleRight, Mail, Paperclip, Upload, FileCode, FileArchive
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Product, Package as BackendPackage, Order, PaymentSettings, Coupon } from "@/backend.d";
+
+interface ProductFileInfo {
+  fileName: string;
+  fileType: string;
+  fileId: bigint;
+}
 
 interface AdminPageProps {
   onNavigate: (page: string) => void;
@@ -37,6 +43,9 @@ interface AdminPageProps {
     createCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) => Promise<void>;
     updateCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) => Promise<void>;
     deleteCoupon: (code: string) => Promise<void>;
+    attachFileToProduct: (productId: bigint, fileName: string, fileType: string, fileData: Uint8Array) => Promise<bigint>;
+    removeFileFromProduct: (productId: bigint, fileId: bigint) => Promise<void>;
+    listProductFilesAdmin: (productId: bigint) => Promise<ProductFileInfo[]>;
   };
 }
 
@@ -285,6 +294,243 @@ interface ProductFormData {
   isAvailable: boolean;
 }
 
+interface QueuedFile {
+  file: File;
+  fileType: string;
+}
+
+function FileTypeBadge({ fileType }: { fileType: string }) {
+  const isLua = fileType.toLowerCase() === "lua";
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs font-bold"
+      style={{
+        background: isLua ? "oklch(0.62 0.27 355 / 0.15)" : "oklch(0.55 0.2 145 / 0.15)",
+        color: isLua ? "oklch(0.75 0.22 355)" : "oklch(0.65 0.2 145)",
+        border: `1px solid ${isLua ? "oklch(0.62 0.27 355 / 0.4)" : "oklch(0.55 0.2 145 / 0.4)"}`,
+      }}
+    >
+      {isLua ? <FileCode className="w-3 h-3" /> : <FileArchive className="w-3 h-3" />}
+      {fileType.toUpperCase()}
+    </span>
+  );
+}
+
+function ProductFilesSection({
+  productId,
+  backend,
+}: {
+  productId: bigint | null;
+  backend: AdminPageProps["backend"];
+}) {
+  const [existingFiles, setExistingFiles] = useState<ProductFileInfo[]>([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [removingFileId, setRemovingFileId] = useState<bigint | null>(null);
+  const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadFiles = useCallback(async (id: bigint) => {
+    setIsLoadingFiles(true);
+    try {
+      const files = await backend.listProductFilesAdmin(id);
+      setExistingFiles(files);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load attached files");
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  }, [backend]);
+
+  useEffect(() => {
+    if (productId !== null) {
+      void loadFiles(productId);
+    } else {
+      setExistingFiles([]);
+    }
+  }, [productId, loadFiles]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    const valid: QueuedFile[] = [];
+    for (const file of files) {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      if (ext === "lua" || ext === "apk") {
+        valid.push({ file, fileType: ext });
+      } else {
+        toast.error(`"${file.name}" is not a .lua or .apk file`);
+      }
+    }
+    setQueuedFiles((prev) => [...prev, ...valid]);
+    // reset input so same file can be re-queued if needed
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeQueued = (idx: number) => {
+    setQueuedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleUpload = async () => {
+    if (!productId || queuedFiles.length === 0) return;
+    setIsUploading(true);
+    try {
+      await Promise.all(
+        queuedFiles.map(async ({ file, fileType }) => {
+          const buffer = await file.arrayBuffer();
+          const data = new Uint8Array(buffer);
+          await backend.attachFileToProduct(productId, file.name, fileType, data);
+        })
+      );
+      toast.success(`${queuedFiles.length} file(s) uploaded!`);
+      setQueuedFiles([]);
+      void loadFiles(productId);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload files");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveExisting = async (fileId: bigint) => {
+    if (!productId) return;
+    setRemovingFileId(fileId);
+    try {
+      await backend.removeFileFromProduct(productId, fileId);
+      toast.success("File removed");
+      void loadFiles(productId);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove file");
+    } finally {
+      setRemovingFileId(null);
+    }
+  };
+
+  return (
+    <div
+      className="rounded-lg p-4 space-y-3"
+      style={{ background: "oklch(0.11 0.04 285)", border: "1px solid oklch(0.25 0.06 285)" }}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <Paperclip className="w-4 h-4" style={{ color: "oklch(0.75 0.22 355)" }} />
+        <span className="font-body font-semibold text-sm text-foreground/80">Attached Files</span>
+        {productId === null && (
+          <span className="text-foreground/40 font-body text-xs">(save the product first to attach files)</span>
+        )}
+      </div>
+
+      {/* Existing files */}
+      {productId !== null && (
+        <>
+          {isLoadingFiles ? (
+            <div className="space-y-2">
+              {(["a", "b"] as const).map((sk) => (
+                <Skeleton key={sk} className="h-8 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+              ))}
+            </div>
+          ) : existingFiles.length === 0 ? (
+            <p className="text-foreground/40 font-body text-xs">No files attached yet</p>
+          ) : (
+            <div className="space-y-1.5">
+              {existingFiles.map((f) => (
+                <div
+                  key={f.fileId.toString()}
+                  className="flex items-center gap-2 px-3 py-2 rounded-md"
+                  style={{ background: "oklch(0.16 0.05 285)" }}
+                >
+                  <FileTypeBadge fileType={f.fileType} />
+                  <span className="flex-1 font-body text-xs text-foreground/70 truncate">{f.fileName}</span>
+                  <button
+                    type="button"
+                    onClick={() => void handleRemoveExisting(f.fileId)}
+                    disabled={removingFileId === f.fileId}
+                    className="p-1 rounded hover:bg-destructive/10 transition-colors shrink-0"
+                    style={{ color: "oklch(0.7 0.25 25)" }}
+                    title="Remove file"
+                  >
+                    {removingFileId === f.fileId
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Trash2 className="w-3.5 h-3.5" />
+                    }
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Queued files for upload */}
+      {queuedFiles.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-foreground/50 font-body text-xs font-semibold uppercase tracking-wider">Queued for upload:</p>
+          {queuedFiles.map((qf, idx) => (
+            <div
+              key={`queued-${String(idx)}`}
+              className="flex items-center gap-2 px-3 py-2 rounded-md"
+              style={{ background: "oklch(0.7 0.22 45 / 0.08)", border: "1px dashed oklch(0.7 0.22 45 / 0.3)" }}
+            >
+              <FileTypeBadge fileType={qf.fileType} />
+              <span className="flex-1 font-body text-xs text-foreground/70 truncate">{qf.file.name}</span>
+              <button
+                type="button"
+                onClick={() => removeQueued(idx)}
+                className="p-1 rounded hover:bg-destructive/10 transition-colors shrink-0 text-foreground/40 hover:text-destructive"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* File input + upload button */}
+      <div className="flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".lua,.apk"
+          multiple
+          className="hidden"
+          onChange={handleFileSelect}
+          id="product-file-input"
+        />
+        <label
+          htmlFor="product-file-input"
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md cursor-pointer font-body text-xs font-semibold transition-colors"
+          style={{
+            background: "oklch(0.16 0.05 285)",
+            border: "1px dashed oklch(0.35 0.08 285)",
+            color: "oklch(0.6 0.08 285)",
+          }}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Select .lua or .apk files
+        </label>
+
+        {queuedFiles.length > 0 && productId !== null && (
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void handleUpload()}
+            disabled={isUploading}
+            className="font-body font-semibold text-white shrink-0"
+            style={{ background: "oklch(0.62 0.27 355 / 0.8)" }}
+          >
+            {isUploading
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Upload className="w-3.5 h-3.5" />
+            }
+            <span className="ml-1">{isUploading ? "Uploading..." : `Upload ${queuedFiles.length}`}</span>
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -292,6 +538,7 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<bigint | null>(null);
+  const [savedProductId, setSavedProductId] = useState<bigint | null>(null);
   const [form, setForm] = useState<ProductFormData>({
     name: "", description: "", price: "", category: "game_account", imageUrl: "", isAvailable: true,
   });
@@ -314,6 +561,7 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   const resetForm = () => {
     setForm({ name: "", description: "", price: "", category: "game_account", imageUrl: "", isAvailable: true });
     setEditingProduct(null);
+    setSavedProductId(null);
     setShowForm(false);
   };
 
@@ -327,6 +575,7 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
       isAvailable: product.isAvailable,
     });
     setEditingProduct(product);
+    setSavedProductId(product.id);
     setShowForm(true);
   };
 
@@ -340,12 +589,13 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
       if (editingProduct) {
         await backend.updateProduct(editingProduct.id, form.name.trim(), form.description.trim(), price, form.category, form.imageUrl.trim(), form.isAvailable);
         toast.success("Product updated!");
+        void loadProducts();
       } else {
-        await backend.createProduct(form.name.trim(), form.description.trim(), price, form.category, form.imageUrl.trim());
-        toast.success("Product created!");
+        const newId = await backend.createProduct(form.name.trim(), form.description.trim(), price, form.category, form.imageUrl.trim());
+        toast.success("Product created! You can now attach files below.");
+        setSavedProductId(newId);
+        void loadProducts();
       }
-      resetForm();
-      void loadProducts();
     } catch (err) {
       console.error(err);
       toast.error("Failed to save product");
@@ -368,6 +618,8 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
     }
   };
 
+  const fileAttachProductId = editingProduct ? editingProduct.id : savedProductId;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -384,7 +636,7 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent className="font-body max-w-lg" style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}>
+        <DialogContent className="font-body max-w-lg max-h-[90vh] overflow-y-auto" style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}>
           <DialogHeader>
             <DialogTitle className="font-display text-xl text-foreground">
               {editingProduct ? "Edit Product" : "Add New Product"}
@@ -422,12 +674,33 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                 <span className="font-body text-sm text-foreground/70">Available in store</span>
               </div>
             )}
+
+            {/* Save button inline for new products before file section */}
+            {!editingProduct && !savedProductId && (
+              <Button
+                className="btn-gradient text-white font-body font-semibold w-full"
+                onClick={() => void handleSave()}
+                disabled={isSaving}
+              >
+                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Product &amp; Attach Files</>}
+              </Button>
+            )}
+
+            {/* Files section – shown once product exists */}
+            <ProductFilesSection
+              productId={fileAttachProductId}
+              backend={backend}
+            />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={resetForm} className="font-body text-foreground/60">Cancel</Button>
-            <Button className="btn-gradient text-white font-body font-semibold" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save</>}
+            <Button variant="ghost" onClick={resetForm} className="font-body text-foreground/60">
+              {savedProductId && !editingProduct ? "Done" : "Cancel"}
             </Button>
+            {(editingProduct || savedProductId) && (
+              <Button className="btn-gradient text-white font-body font-semibold" onClick={() => void handleSave()} disabled={isSaving}>
+                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save</>}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

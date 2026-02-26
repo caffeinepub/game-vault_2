@@ -134,7 +134,21 @@ export default function App() {
     updateCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) =>
       actor ? actor.updateCoupon(code, type, value, maxUses, isActive) : Promise.resolve(),
     deleteCoupon: (code: string) => actor ? actor.deleteCoupon(code) : Promise.resolve(),
+    attachFileToProduct: (productId: bigint, fileName: string, fileType: string, fileData: Uint8Array) =>
+      actor ? actor.attachFileToProduct(productId, fileName, fileType, fileData) : Promise.resolve(BigInt(0)),
+    removeFileFromProduct: (productId: bigint, fileId: bigint) =>
+      actor ? actor.removeFileFromProduct(productId, fileId) : Promise.resolve(),
+    listProductFilesAdmin: (productId: bigint) =>
+      actor ? actor.listProductFilesAdmin(productId) : Promise.resolve([]),
   };
+
+  const handleListProductFiles = useCallback((productId: bigint) =>
+    actor ? actor.listProductFiles(productId) : Promise.resolve([]),
+  [actor]);
+
+  const handleDownloadFile = useCallback((fileId: bigint) =>
+    actor ? actor.downloadProductFile(fileId) : Promise.resolve(new Uint8Array()),
+  [actor]);
 
   // ---- Loading screen ----
   if (showLoading) {
@@ -241,6 +255,9 @@ export default function App() {
               onLogout={handleLogout}
               onLoadOrders={handleLoadOrders}
               onUpdateEmail={handleUpdateEmail}
+              onListProductFiles={handleListProductFiles}
+              onDownloadFile={handleDownloadFile}
+              products={products}
             />
           )}
 

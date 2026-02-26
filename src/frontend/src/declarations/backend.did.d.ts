@@ -63,6 +63,10 @@ export type Username = string;
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'attachFileToProduct' : ActorMethod<
+    [bigint, string, string, Uint8Array],
+    bigint
+  >,
   'createCoupon' : ActorMethod<
     [string, string, bigint, bigint, boolean],
     undefined
@@ -78,6 +82,7 @@ export interface _SERVICE {
   'deleteCoupon' : ActorMethod<[string], undefined>,
   'deletePackage' : ActorMethod<[bigint], undefined>,
   'deleteProduct' : ActorMethod<[bigint], undefined>,
+  'downloadProductFile' : ActorMethod<[bigint], Uint8Array>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCustomerOrders' : ActorMethod<[Username], Array<Order>>,
@@ -90,11 +95,20 @@ export interface _SERVICE {
   'listAllCoupons' : ActorMethod<[], Array<Coupon>>,
   'listAllOrders' : ActorMethod<[], Array<[Username, Array<Order>]>>,
   'listAvailableProducts' : ActorMethod<[], Array<Product>>,
+  'listProductFiles' : ActorMethod<
+    [bigint],
+    Array<{ 'fileName' : string, 'fileType' : string, 'fileId' : bigint }>
+  >,
+  'listProductFilesAdmin' : ActorMethod<
+    [bigint],
+    Array<{ 'fileName' : string, 'fileType' : string, 'fileId' : bigint }>
+  >,
   'placeOrder' : ActorMethod<
     [Username, string, bigint, string, string, [] | [string], string],
     bigint
   >,
   'registerUser' : ActorMethod<[string, string], undefined>,
+  'removeFileFromProduct' : ActorMethod<[bigint, bigint], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'savePaymentSettings' : ActorMethod<[PaymentSettings], undefined>,
   'updateCoupon' : ActorMethod<

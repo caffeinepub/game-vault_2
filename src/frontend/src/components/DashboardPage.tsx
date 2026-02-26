@@ -1,12 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserCircle, LogOut, ShoppingBag, Clock, Mail, Save, Loader2 } from "lucide-react";
+import { UserCircle, LogOut, ShoppingBag, Clock, Mail, Save, Loader2, Download, FileCode, FileArchive } from "lucide-react";
 import { toast } from "sonner";
 import type { Page } from "@/types";
-import type { Order, UserProfile } from "@/backend.d";
+import type { Order, UserProfile, Product } from "@/backend.d";
+
+interface ProductFileInfo {
+  fileName: string;
+  fileType: string;
+  fileId: bigint;
+}
 
 interface DashboardPageProps {
   userProfile: UserProfile;
@@ -14,6 +20,9 @@ interface DashboardPageProps {
   onLogout: () => void;
   onLoadOrders: (username: string) => Promise<Order[]>;
   onUpdateEmail: (newEmail: string) => Promise<void>;
+  onListProductFiles?: (productId: bigint) => Promise<ProductFileInfo[]>;
+  onDownloadFile?: (fileId: bigint) => Promise<Uint8Array>;
+  products?: Product[];
 }
 
 function formatPrice(pricePence: bigint): string {
@@ -79,7 +88,147 @@ function getPaymentMethodLabel(method: string): string {
   return labels[method.toLowerCase()] ?? method;
 }
 
-export function DashboardPage({ userProfile, onNavigate, onLogout, onLoadOrders, onUpdateEmail }: DashboardPageProps) {
+function FileTypeBadge({ fileType }: { fileType: string }) {
+  const isLua = fileType.toLowerCase() === "lua";
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs font-bold"
+      style={{
+        background: isLua ? "oklch(0.62 0.27 355 / 0.15)" : "oklch(0.55 0.2 145 / 0.15)",
+        color: isLua ? "oklch(0.75 0.22 355)" : "oklch(0.65 0.2 145)",
+        border: `1px solid ${isLua ? "oklch(0.62 0.27 355 / 0.4)" : "oklch(0.55 0.2 145 / 0.4)"}`,
+      }}
+    >
+      {isLua ? <FileCode className="w-3 h-3" /> : <FileArchive className="w-3 h-3" />}
+      {fileType.toUpperCase()}
+    </span>
+  );
+}
+
+function OrderDownloadSection({
+  order,
+  products,
+  onListProductFiles,
+  onDownloadFile,
+}: {
+  order: Order;
+  products: Product[];
+  onListProductFiles: (productId: bigint) => Promise<ProductFileInfo[]>;
+  onDownloadFile: (fileId: bigint) => Promise<Uint8Array>;
+}) {
+  const [files, setFiles] = useState<ProductFileInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<bigint | null>(null);
+
+  const loadFiles = useCallback(async () => {
+    // find the matching product by name
+    const product = products.find(
+      (p) => p.name.toLowerCase() === order.itemName.toLowerCase()
+    );
+    if (!product) {
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const result = await onListProductFiles(product.id);
+      setFiles(result);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [products, order.itemName, onListProductFiles]);
+
+  useEffect(() => {
+    void loadFiles();
+  }, [loadFiles]);
+
+  const handleDownload = async (file: ProductFileInfo) => {
+    setDownloadingId(file.fileId);
+    try {
+      const data = await onDownloadFile(file.fileId);
+      const mimeType = file.fileType.toLowerCase() === "apk"
+        ? "application/vnd.android.package-archive"
+        : "text/plain";
+      // Copy into a plain ArrayBuffer to satisfy strict Blob typing
+      const arrayCopy = new Uint8Array(data).buffer as ArrayBuffer;
+      const blob = new Blob([arrayCopy], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Downloading ${file.fileName}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to download file");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "oklch(0.65 0.2 145)" }} />
+        <span className="text-xs font-body text-foreground/40">Checking for files...</span>
+      </div>
+    );
+  }
+
+  if (files.length === 0) return null;
+
+  return (
+    <div
+      className="mt-3 rounded-lg p-3 space-y-2"
+      style={{ background: "oklch(0.55 0.2 145 / 0.07)", border: "1px solid oklch(0.55 0.2 145 / 0.25)" }}
+    >
+      <div className="flex items-center gap-1.5 mb-1">
+        <Download className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.2 145)" }} />
+        <span className="font-body font-semibold text-xs" style={{ color: "oklch(0.65 0.2 145)" }}>
+          Download Files
+        </span>
+      </div>
+      {files.map((file) => (
+        <div key={file.fileId.toString()} className="flex items-center gap-2">
+          <FileTypeBadge fileType={file.fileType} />
+          <span className="flex-1 font-body text-xs text-foreground/60 truncate">{file.fileName}</span>
+          <Button
+            size="sm"
+            onClick={() => void handleDownload(file)}
+            disabled={downloadingId === file.fileId}
+            className="h-7 px-2 font-body font-semibold text-xs shrink-0"
+            style={{
+              background: "oklch(0.55 0.2 145 / 0.2)",
+              border: "1px solid oklch(0.55 0.2 145 / 0.4)",
+              color: "oklch(0.65 0.2 145)",
+            }}
+          >
+            {downloadingId === file.fileId
+              ? <Loader2 className="w-3 h-3 animate-spin" />
+              : <Download className="w-3 h-3" />
+            }
+            <span className="ml-1">{downloadingId === file.fileId ? "..." : "Download"}</span>
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function DashboardPage({
+  userProfile,
+  onNavigate,
+  onLogout,
+  onLoadOrders,
+  onUpdateEmail,
+  onListProductFiles,
+  onDownloadFile,
+  products = [],
+}: DashboardPageProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
 
@@ -284,70 +433,45 @@ export function DashboardPage({ userProfile, onNavigate, onLogout, onLoadOrders,
               </Button>
             </div>
           ) : (
-            <div className="glass-card overflow-hidden">
-              {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid oklch(0.3 0.08 285)" }}>
-                      {["Item", "Price", "Payment", "Date", "Status"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-5 py-3 text-left font-body font-semibold text-xs uppercase tracking-wider text-foreground/40"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order) => (
-                      <tr
-                        key={order.orderId.toString()}
-                        style={{ borderBottom: "1px solid oklch(0.2 0.04 285 / 0.5)" }}
-                        className="hover:bg-muted/20 transition-colors"
-                      >
-                        <td className="px-5 py-4 font-body text-sm text-foreground font-medium">{order.itemName}</td>
-                        <td className="px-5 py-4 font-body text-sm" style={{ color: "oklch(0.85 0.19 85)" }}>
-                          {formatPrice(order.price)}
-                        </td>
-                        <td className="px-5 py-4 font-body text-sm text-foreground/60">
-                          {getPaymentMethodLabel(order.paymentMethod)}
-                        </td>
-                        <td className="px-5 py-4 font-body text-sm text-foreground/50">
-                          <span className="flex items-center gap-1.5">
+            <div className="space-y-3">
+              {orders.map((order) => {
+                const isAccepted = order.status.toLowerCase() === "accepted";
+                const canDownload = isAccepted && !!onListProductFiles && !!onDownloadFile && products.length > 0;
+                return (
+                  <div
+                    key={order.orderId.toString()}
+                    className="glass-card p-4"
+                  >
+                    {/* Main order row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-body font-semibold text-foreground text-sm truncate">{order.itemName}</p>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-foreground/50 font-body">
+                          <span style={{ color: "oklch(0.85 0.19 85)" }}>{formatPrice(order.price)}</span>
+                          <span>{getPaymentMethodLabel(order.paymentMethod)}</span>
+                          <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {formatDate(order.timestamp)}
                           </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <StatusBadge status={order.status} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        <StatusBadge status={order.status} />
+                      </div>
+                    </div>
 
-              {/* Mobile cards */}
-              <div className="md:hidden divide-y" style={{ borderColor: "oklch(0.2 0.04 285 / 0.5)" }}>
-                {orders.map((order) => (
-                  <div key={order.orderId.toString()} className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-body font-semibold text-foreground text-sm">{order.itemName}</p>
-                      <StatusBadge status={order.status} />
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-foreground/50 font-body">
-                      <span>{getPaymentMethodLabel(order.paymentMethod)}</span>
-                      <span style={{ color: "oklch(0.85 0.19 85)" }}>{formatPrice(order.price)}</span>
-                    </div>
-                    <p className="text-foreground/40 font-body text-xs flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatDate(order.timestamp)}
-                    </p>
+                    {/* Download section for accepted orders */}
+                    {canDownload && (
+                      <OrderDownloadSection
+                        order={order}
+                        products={products}
+                        onListProductFiles={onListProductFiles}
+                        onDownloadFile={onDownloadFile}
+                      />
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           )}
         </div>

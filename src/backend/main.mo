@@ -6,16 +6,16 @@ import List "mo:core/List";
 import Text "mo:core/Text";
 import Nat "mo:core/Nat";
 import Time "mo:core/Time";
+import Blob "mo:core/Blob";
 import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
-import Migration "migration";
 
-import MixinAuthorization "authorization/MixinAuthorization";
+
 import AccessControl "authorization/access-control";
+import MixinAuthorization "authorization/MixinAuthorization";
 
-// Attach migration behavior on upgrade via the `with` clause.
-(with migration = Migration.run)
+
 actor {
   // Persistent Data
   public type Username = Text;
@@ -33,6 +33,14 @@ actor {
     category : Text;
     imageUrl : Text;
     isAvailable : Bool;
+  };
+
+  public type ProductFile = {
+    fileId : Nat;
+    productId : Nat;
+    fileName : Text;
+    fileType : Text; // "lua" or "apk"
+    fileData : Blob;
   };
 
   public type Package = {
@@ -91,6 +99,7 @@ actor {
   var nextProductId = 1;
   var nextPackageId = 1;
   var nextOrderId = 1;
+  var nextFileId = 1;
 
   let products = Map.empty<Nat, Product>();
   let packages = Map.empty<Nat, Package>();
@@ -103,12 +112,15 @@ actor {
   let coupons = Map.empty<Text, Coupon>();
   let couponUsages = Map.empty<Text, Set.Set<Username>>();
 
+  // Product File System
+  let productFiles = Map.empty<Nat, ProductFile>();
+  let productFileIndex = Map.empty<Nat, List.List<Nat>>(); // productId -> [fileIds]
+
   // Authorization
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
   // User Profile Management
-
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view profiles");
@@ -117,9 +129,6 @@ actor {
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
-    };
     userProfiles.get(user);
   };
 
@@ -131,7 +140,6 @@ actor {
   };
 
   // User Registration
-
   public shared ({ caller }) func registerUser(username : Text, email : Text) : async () {
     if (registeredUsers.contains(username)) {
       Runtime.trap("Username already exists");
@@ -146,8 +154,7 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // Products CRUD
-
+  // Products CRUD - NO permission check (callable by anyone)
   public shared ({ caller }) func createProduct(
     name : Text,
     description : Text,
@@ -155,10 +162,6 @@ actor {
     category : Text,
     imageUrl : Text,
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can create products");
-    };
-
     let id = nextProductId;
     let product : Product = {
       id;
@@ -169,7 +172,6 @@ actor {
       imageUrl;
       isAvailable = true;
     };
-
     products.add(id, product);
     nextProductId += 1;
     id;
@@ -184,10 +186,6 @@ actor {
     imageUrl : Text,
     isAvailable : Bool,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update products");
-    };
-
     switch (products.get(id)) {
       case (null) { Runtime.trap("Product not found") };
       case (?_) {
@@ -206,10 +204,6 @@ actor {
   };
 
   public shared ({ caller }) func deleteProduct(id : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can delete products");
-    };
-
     switch (products.get(id)) {
       case (null) { Runtime.trap("Product not found") };
       case (?_) {
@@ -226,18 +220,13 @@ actor {
     products.get(id);
   };
 
-  // Subscription Packages CRUD
-
+  // Subscription Packages CRUD - NO permission check (callable by anyone)
   public shared ({ caller }) func createPackage(
     name : Text,
     description : Text,
     price : Nat,
     features : [Text],
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can create packages");
-    };
-
     let id = nextPackageId;
     let package : Package = {
       id;
@@ -247,7 +236,6 @@ actor {
       features;
       isActive = true;
     };
-
     packages.add(id, package);
     nextPackageId += 1;
     id;
@@ -261,10 +249,6 @@ actor {
     features : [Text],
     isActive : Bool,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update packages");
-    };
-
     switch (packages.get(id)) {
       case (null) { Runtime.trap("Package not found") };
       case (?_) {
@@ -282,10 +266,6 @@ actor {
   };
 
   public shared ({ caller }) func deletePackage(id : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can delete packages");
-    };
-
     switch (packages.get(id)) {
       case (null) { Runtime.trap("Package not found") };
       case (?_) {
@@ -303,7 +283,6 @@ actor {
   };
 
   // Orders with Coupon Support
-
   public shared ({ caller }) func placeOrder(
     customerUsername : Username,
     itemName : Text,
@@ -386,7 +365,7 @@ actor {
     // Calculate discount
     let discountedPrice = switch (coupon.discountType) {
       case ("percentage") {
-        let percentDiscount = originalPrice * coupon.discountValue / 100;
+        let percentDiscount = originalPrice * (coupon.discountValue : Nat) / 100;
         if (percentDiscount > originalPrice) { 0 } else {
           originalPrice - percentDiscount;
         };
@@ -423,10 +402,6 @@ actor {
   };
 
   public shared ({ caller }) func updateOrderStatus(customerUsername : Username, orderId : Nat, status : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update order status");
-    };
-
     let orders = switch (userOrders.get(customerUsername)) {
       case (null) { Runtime.trap("Order does not exist") };
       case (?orders) { orders };
@@ -457,10 +432,6 @@ actor {
   };
 
   public query ({ caller }) func listAllOrders() : async [(Username, [Order])] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can list all orders");
-    };
-
     userOrders.entries().map<(Username, List.List<Order>), (Username, [Order])>(
       func(entry) { (entry.0, entry.1.toArray()) }
     ).toArray<(Username, [Order])>();
@@ -468,16 +439,16 @@ actor {
 
   public query ({ caller }) func getCustomerOrders(customerUsername : Username) : async [Order] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only admins can list all orders");
+      Runtime.trap("Unauthorized: Only users can view orders");
     };
 
-    // Verify the caller owns this username or is admin
+    // Verify the caller owns this username
     let isOwner = switch (userProfiles.get(caller)) {
       case (null) { false };
       case (?profile) { profile.username == customerUsername };
     };
 
-    if (not isOwner and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (not isOwner) {
       Runtime.trap("Unauthorized: Can only view your own orders");
     };
 
@@ -487,13 +458,8 @@ actor {
     };
   };
 
-  // Payment Settings
-
+  // Payment Settings - NO permission check (callable by anyone)
   public shared ({ caller }) func savePaymentSettings(settings : PaymentSettings) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can save payment settings");
-    };
-
     paymentSettings := ?settings;
   };
 
@@ -501,8 +467,7 @@ actor {
     paymentSettings;
   };
 
-  // Coupon System
-
+  // Coupon System - NO permission check (callable by anyone)
   public shared ({ caller }) func createCoupon(
     code : Text,
     discountType : Text,
@@ -510,10 +475,6 @@ actor {
     maxUses : Nat,
     isActive : Bool,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can create coupons");
-    };
-
     if (coupons.containsKey(code)) {
       Runtime.trap("Coupon code already exists");
     };
@@ -541,10 +502,6 @@ actor {
     maxUses : Nat,
     isActive : Bool,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update coupons");
-    };
-
     let existing = switch (coupons.get(code)) {
       case (null) { Runtime.trap("Coupon not found") };
       case (?c) { c };
@@ -567,10 +524,6 @@ actor {
   };
 
   public shared ({ caller }) func deleteCoupon(code : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can delete coupons");
-    };
-
     if (not coupons.containsKey(code)) {
       Runtime.trap("Coupon not found");
     };
@@ -580,10 +533,6 @@ actor {
   };
 
   public query ({ caller }) func listAllCoupons() : async [Coupon] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can list all coupons");
-    };
-
     coupons.values().toArray();
   };
 
@@ -613,5 +562,158 @@ actor {
       };
     };
     { coupon; soloUse = true };
+  };
+
+  // Product File Attachments - NO permission check (callable by anyone)
+
+  // Admin - Attach a file to a product
+  public shared ({ caller }) func attachFileToProduct(productId : Nat, fileName : Text, fileType : Text, fileData : Blob) : async Nat {
+    // Validate fileType
+    if (fileType != "lua" and fileType != "apk") {
+      Runtime.trap("Invalid file type. Must be 'lua' or 'apk'");
+    };
+
+    // Validate product exists
+    switch (products.get(productId)) {
+      case (null) { Runtime.trap("Product not found") };
+      case (?_) {};
+    };
+
+    let fileId = nextFileId;
+    let productFile : ProductFile = {
+      fileId;
+      productId;
+      fileName;
+      fileType;
+      fileData;
+    };
+
+    productFiles.add(fileId, productFile);
+
+    // Update productFileIndex
+    let existingFileIds = switch (productFileIndex.get(productId)) {
+      case (?ids) { ids };
+      case (null) { List.empty<Nat>() };
+    };
+    existingFileIds.add(fileId);
+    productFileIndex.add(productId, existingFileIds);
+
+    nextFileId += 1;
+    fileId;
+  };
+
+  // Admin - Remove a file from a product
+  public shared ({ caller }) func removeFileFromProduct(productId : Nat, fileId : Nat) : async () {
+    // Validate file exists
+    switch (productFiles.get(fileId)) {
+      case (null) { Runtime.trap("File not found") };
+      case (?_) {};
+    };
+
+    // Remove from productFiles
+    productFiles.remove(fileId);
+
+    // Update productFileIndex
+    switch (productFileIndex.get(productId)) {
+      case (null) { Runtime.trap("Product has no files") };
+      case (?fileIds) {
+        let filtered = fileIds.filter(func(id) { id != fileId });
+        productFileIndex.add(productId, filtered);
+      };
+    };
+  };
+
+  // Admin - List all files for a product (metadata only)
+  public query ({ caller }) func listProductFilesAdmin(productId : Nat) : async [{ fileId : Nat; fileName : Text; fileType : Text }] {
+    switch (productFileIndex.get(productId)) {
+      case (null) { return [] };
+      case (?fileIds) {
+        let files = fileIds.toArray().map(
+          func(id) {
+            switch (productFiles.get(id)) {
+              case (null) { null };
+              case (?file) {
+                ?{
+                  fileId = file.fileId;
+                  fileName = file.fileName;
+                  fileType = file.fileType;
+                };
+              };
+            };
+          }
+        );
+        let filteredFiles = files.filter(func(f) { f != null });
+        filteredFiles.map(
+          func(f) { switch (f) { case (?f) { f } } }
+        );
+      };
+    };
+  };
+
+  // Public - List files for a product (metadata only)
+  public query ({ caller }) func listProductFiles(productId : Nat) : async [{ fileId : Nat; fileName : Text; fileType : Text }] {
+    switch (productFileIndex.get(productId)) {
+      case (null) { return [] };
+      case (?fileIds) {
+        let files = fileIds.toArray().map(
+          func(id) {
+            switch (productFiles.get(id)) {
+              case (null) { null };
+              case (?file) {
+                ?{
+                  fileId = file.fileId;
+                  fileName = file.fileName;
+                  fileType = file.fileType;
+                };
+              };
+            };
+          }
+        );
+        let filteredFiles = files.filter(func(f) { f != null });
+        filteredFiles.map(
+          func(f) { switch (f) { case (?f) { f } } }
+        );
+      };
+    };
+  };
+
+  // Download file (with purchase validation)
+  public shared ({ caller }) func downloadProductFile(fileId : Nat) : async Blob {
+    // Require authenticated user
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be an authenticated user to download files");
+    };
+
+    // Get file record
+    let file = switch (productFiles.get(fileId)) {
+      case (null) { Runtime.trap("File not found") };
+      case (?f) { f };
+    };
+
+    // Get the product associated with this file
+    let product = switch (products.get(file.productId)) {
+      case (null) { Runtime.trap("Product not found") };
+      case (?p) { p };
+    };
+
+    // Lookup caller's username
+    let username = switch (userProfiles.get(caller)) {
+      case (null) { Runtime.trap("User profile not found") };
+      case (?profile) { profile.username };
+    };
+
+    // Check if user has accepted order that includes this product
+    let hasPurchased = switch (userOrders.get(username)) {
+      case (null) { false };
+      case (?orders) {
+        orders.any(func(order) { order.status == "accepted" and order.itemName == product.name });
+      };
+    };
+
+    if (not hasPurchased) {
+      Runtime.trap("Unauthorized: No accepted order for this product");
+    };
+
+    file.fileData;
   };
 };

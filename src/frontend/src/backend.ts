@@ -147,12 +147,14 @@ export enum UserRole {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    attachFileToProduct(productId: bigint, fileName: string, fileType: string, fileData: Uint8Array): Promise<bigint>;
     createCoupon(code: string, discountType: string, discountValue: bigint, maxUses: bigint, isActive: boolean): Promise<void>;
     createPackage(name: string, description: string, price: bigint, features: Array<string>): Promise<bigint>;
     createProduct(name: string, description: string, price: bigint, category: string, imageUrl: string): Promise<bigint>;
     deleteCoupon(code: string): Promise<void>;
     deletePackage(id: bigint): Promise<void>;
     deleteProduct(id: bigint): Promise<void>;
+    downloadProductFile(fileId: bigint): Promise<Uint8Array>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCustomerOrders(customerUsername: Username): Promise<Array<Order>>;
@@ -165,8 +167,19 @@ export interface backendInterface {
     listAllCoupons(): Promise<Array<Coupon>>;
     listAllOrders(): Promise<Array<[Username, Array<Order>]>>;
     listAvailableProducts(): Promise<Array<Product>>;
+    listProductFiles(productId: bigint): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>>;
+    listProductFilesAdmin(productId: bigint): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>>;
     placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null, deliveryEmail: string): Promise<bigint>;
     registerUser(username: string, email: string): Promise<void>;
+    removeFileFromProduct(productId: bigint, fileId: bigint): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     savePaymentSettings(settings: PaymentSettings): Promise<void>;
     updateCoupon(code: string, discountType: string, discountValue: bigint, maxUses: bigint, isActive: boolean): Promise<void>;
@@ -206,6 +219,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+    async attachFileToProduct(arg0: bigint, arg1: string, arg2: string, arg3: Uint8Array): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.attachFileToProduct(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.attachFileToProduct(arg0, arg1, arg2, arg3);
             return result;
         }
     }
@@ -290,6 +317,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteProduct(arg0);
+            return result;
+        }
+    }
+    async downloadProductFile(arg0: bigint): Promise<Uint8Array> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.downloadProductFile(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.downloadProductFile(arg0);
             return result;
         }
     }
@@ -461,6 +502,42 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async listProductFiles(arg0: bigint): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listProductFiles(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listProductFiles(arg0);
+            return result;
+        }
+    }
+    async listProductFilesAdmin(arg0: bigint): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listProductFilesAdmin(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listProductFilesAdmin(arg0);
+            return result;
+        }
+    }
     async placeOrder(arg0: Username, arg1: string, arg2: bigint, arg3: string, arg4: string, arg5: string | null, arg6: string): Promise<bigint> {
         if (this.processError) {
             try {
@@ -486,6 +563,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.registerUser(arg0, arg1);
+            return result;
+        }
+    }
+    async removeFileFromProduct(arg0: bigint, arg1: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.removeFileFromProduct(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.removeFileFromProduct(arg0, arg1);
             return result;
         }
     }

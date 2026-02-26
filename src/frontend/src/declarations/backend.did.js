@@ -67,6 +67,11 @@ export const Coupon = IDL.Record({
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'attachFileToProduct' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Text, IDL.Vec(IDL.Nat8)],
+      [IDL.Nat],
+      [],
+    ),
   'createCoupon' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Bool],
       [],
@@ -85,6 +90,7 @@ export const idlService = IDL.Service({
   'deleteCoupon' : IDL.Func([IDL.Text], [], []),
   'deletePackage' : IDL.Func([IDL.Nat], [], []),
   'deleteProduct' : IDL.Func([IDL.Nat], [], []),
+  'downloadProductFile' : IDL.Func([IDL.Nat], [IDL.Vec(IDL.Nat8)], []),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCustomerOrders' : IDL.Func([Username], [IDL.Vec(Order)], ['query']),
@@ -105,6 +111,32 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'listAvailableProducts' : IDL.Func([], [IDL.Vec(Product)], ['query']),
+  'listProductFiles' : IDL.Func(
+      [IDL.Nat],
+      [
+        IDL.Vec(
+          IDL.Record({
+            'fileName' : IDL.Text,
+            'fileType' : IDL.Text,
+            'fileId' : IDL.Nat,
+          })
+        ),
+      ],
+      ['query'],
+    ),
+  'listProductFilesAdmin' : IDL.Func(
+      [IDL.Nat],
+      [
+        IDL.Vec(
+          IDL.Record({
+            'fileName' : IDL.Text,
+            'fileType' : IDL.Text,
+            'fileId' : IDL.Nat,
+          })
+        ),
+      ],
+      ['query'],
+    ),
   'placeOrder' : IDL.Func(
       [
         Username,
@@ -119,6 +151,7 @@ export const idlService = IDL.Service({
       [],
     ),
   'registerUser' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'removeFileFromProduct' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'savePaymentSettings' : IDL.Func([PaymentSettings], [], []),
   'updateCoupon' : IDL.Func(
@@ -203,6 +236,11 @@ export const idlFactory = ({ IDL }) => {
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'attachFileToProduct' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, IDL.Vec(IDL.Nat8)],
+        [IDL.Nat],
+        [],
+      ),
     'createCoupon' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Bool],
         [],
@@ -221,6 +259,7 @@ export const idlFactory = ({ IDL }) => {
     'deleteCoupon' : IDL.Func([IDL.Text], [], []),
     'deletePackage' : IDL.Func([IDL.Nat], [], []),
     'deleteProduct' : IDL.Func([IDL.Nat], [], []),
+    'downloadProductFile' : IDL.Func([IDL.Nat], [IDL.Vec(IDL.Nat8)], []),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCustomerOrders' : IDL.Func([Username], [IDL.Vec(Order)], ['query']),
@@ -241,6 +280,32 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'listAvailableProducts' : IDL.Func([], [IDL.Vec(Product)], ['query']),
+    'listProductFiles' : IDL.Func(
+        [IDL.Nat],
+        [
+          IDL.Vec(
+            IDL.Record({
+              'fileName' : IDL.Text,
+              'fileType' : IDL.Text,
+              'fileId' : IDL.Nat,
+            })
+          ),
+        ],
+        ['query'],
+      ),
+    'listProductFilesAdmin' : IDL.Func(
+        [IDL.Nat],
+        [
+          IDL.Vec(
+            IDL.Record({
+              'fileName' : IDL.Text,
+              'fileType' : IDL.Text,
+              'fileId' : IDL.Nat,
+            })
+          ),
+        ],
+        ['query'],
+      ),
     'placeOrder' : IDL.Func(
         [
           Username,
@@ -255,6 +320,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'registerUser' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'removeFileFromProduct' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'savePaymentSettings' : IDL.Func([PaymentSettings], [], []),
     'updateCoupon' : IDL.Func(

@@ -64,12 +64,14 @@ export enum UserRole {
 }
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    attachFileToProduct(productId: bigint, fileName: string, fileType: string, fileData: Uint8Array): Promise<bigint>;
     createCoupon(code: string, discountType: string, discountValue: bigint, maxUses: bigint, isActive: boolean): Promise<void>;
     createPackage(name: string, description: string, price: bigint, features: Array<string>): Promise<bigint>;
     createProduct(name: string, description: string, price: bigint, category: string, imageUrl: string): Promise<bigint>;
     deleteCoupon(code: string): Promise<void>;
     deletePackage(id: bigint): Promise<void>;
     deleteProduct(id: bigint): Promise<void>;
+    downloadProductFile(fileId: bigint): Promise<Uint8Array>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCustomerOrders(customerUsername: Username): Promise<Array<Order>>;
@@ -82,8 +84,19 @@ export interface backendInterface {
     listAllCoupons(): Promise<Array<Coupon>>;
     listAllOrders(): Promise<Array<[Username, Array<Order>]>>;
     listAvailableProducts(): Promise<Array<Product>>;
+    listProductFiles(productId: bigint): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>>;
+    listProductFilesAdmin(productId: bigint): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>>;
     placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null, deliveryEmail: string): Promise<bigint>;
     registerUser(username: string, email: string): Promise<void>;
+    removeFileFromProduct(productId: bigint, fileId: bigint): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     savePaymentSettings(settings: PaymentSettings): Promise<void>;
     updateCoupon(code: string, discountType: string, discountValue: bigint, maxUses: bigint, isActive: boolean): Promise<void>;
