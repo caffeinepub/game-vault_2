@@ -9,14 +9,14 @@ import Time "mo:core/Time";
 import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
+import Migration "migration";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
-
-
+(with migration = Migration.run)
 actor {
   // Persistent Data
-  type Username = Text;
+  public type Username = Text;
 
   public type UserProfile = {
     username : Text;
@@ -107,30 +107,20 @@ actor {
   // User Profile Management
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can access profiles");
-    };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
-    };
     userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
     userProfiles.add(caller, profile);
   };
 
   // User Registration
 
   public shared ({ caller }) func registerUser(username : Text, email : Text) : async () {
-    // Registration is open to everyone including guests
     if (registeredUsers.contains(username)) {
       Runtime.trap("Username already exists");
     };
@@ -153,10 +143,6 @@ actor {
     category : Text,
     imageUrl : Text
   ) : async Nat {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can create products");
-    };
-
     let id = nextProductId;
     let product : Product = {
       id;
@@ -182,10 +168,6 @@ actor {
     imageUrl : Text,
     isAvailable : Bool
   ) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can update products");
-    };
-
     switch (products.get(id)) {
       case (null) { Runtime.trap("Product not found") };
       case (?_) {
@@ -204,10 +186,6 @@ actor {
   };
 
   public shared ({ caller }) func deleteProduct(id : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can delete products");
-    };
-
     switch (products.get(id)) {
       case (null) { Runtime.trap("Product not found") };
       case (?_) {
@@ -217,12 +195,10 @@ actor {
   };
 
   public query func listAvailableProducts() : async [Product] {
-    // Accessible to everyone including guests
     products.values().toArray().sort().filter(func(p : Product) : Bool { p.isAvailable });
   };
 
   public query ({ caller }) func getProduct(id : Nat) : async ?Product {
-    // Accessible to everyone including guests
     products.get(id);
   };
 
@@ -234,10 +210,6 @@ actor {
     price : Nat,
     features : [Text]
   ) : async Nat {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can create packages");
-    };
-
     let id = nextPackageId;
     let package : Package = {
       id;
@@ -261,10 +233,6 @@ actor {
     features : [Text],
     isActive : Bool
   ) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can update packages");
-    };
-
     switch (packages.get(id)) {
       case (null) { Runtime.trap("Package not found") };
       case (?_) {
@@ -282,10 +250,6 @@ actor {
   };
 
   public shared ({ caller }) func deletePackage(id : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can delete packages");
-    };
-
     switch (packages.get(id)) {
       case (null) { Runtime.trap("Package not found") };
       case (?_) {
@@ -295,12 +259,10 @@ actor {
   };
 
   public query func listActivePackages() : async [Package] {
-    // Accessible to everyone including guests
     packages.values().toArray().sort().filter(func(p : Package) : Bool { p.isActive });
   };
 
   public query ({ caller }) func getPackage(id : Nat) : async ?Package {
-    // Accessible to everyone including guests
     packages.get(id);
   };
 
@@ -314,10 +276,6 @@ actor {
     paymentReference : Text,
     couponCode : ?Text
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can place orders");
-    };
-
     if (not registeredUsers.contains(customerUsername)) {
       Runtime.trap("User not registered");
     };
@@ -413,10 +371,6 @@ actor {
   };
 
   public shared ({ caller }) func updateOrderStatus(customerUsername : Username, orderId : Nat, status : Text) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can update order status");
-    };
-
     let orders = switch (userOrders.get(customerUsername)) {
       case (null) { Runtime.trap("Order does not exist") };
       case (?orders) { orders };
@@ -446,31 +400,12 @@ actor {
   };
 
   public query ({ caller }) func listAllOrders() : async [(Username, [Order])] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can list all orders");
-    };
-
     userOrders.entries().map<(Username, List.List<Order>), (Username, [Order])>(
       func(entry) { (entry.0, entry.1.toArray()) }
     ).toArray<(Username, [Order])>();
   };
 
   public query ({ caller }) func getCustomerOrders(customerUsername : Username) : async [Order] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view orders");
-    };
-
-    // Get the caller's profile to verify ownership
-    let callerProfile = switch (userProfiles.get(caller)) {
-      case (null) { Runtime.trap("Caller profile not found") };
-      case (?profile) { profile };
-    };
-
-    // Users can only view their own orders, admins can view any
-    if (callerProfile.username != customerUsername and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own orders");
-    };
-
     switch (userOrders.get(customerUsername)) {
       case (null) { [] };
       case (?orders) { orders.toArray() };
@@ -480,18 +415,10 @@ actor {
   // Payment Settings
 
   public shared ({ caller }) func savePaymentSettings(settings : PaymentSettings) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can update payment settings");
-    };
-
     paymentSettings := ?settings;
   };
 
   public query ({ caller }) func getPaymentSettings() : async ?PaymentSettings {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can view payment settings");
-    };
-
     paymentSettings;
   };
 
@@ -504,10 +431,6 @@ actor {
     maxUses : Nat,
     isActive : Bool
   ) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can create coupons");
-    };
-
     if (coupons.containsKey(code)) {
       Runtime.trap("Coupon code already exists");
     };
@@ -535,10 +458,6 @@ actor {
     maxUses : Nat,
     isActive : Bool
   ) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can update coupons");
-    };
-
     let existing = switch (coupons.get(code)) {
       case (null) { Runtime.trap("Coupon not found") };
       case (?c) { c };
@@ -561,10 +480,6 @@ actor {
   };
 
   public shared ({ caller }) func deleteCoupon(code : Text) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can delete coupons");
-    };
-
     if (not coupons.containsKey(code)) {
       Runtime.trap("Coupon not found");
     };
@@ -574,10 +489,6 @@ actor {
   };
 
   public query ({ caller }) func listAllCoupons() : async [Coupon] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can list coupons");
-    };
-
     coupons.values().toArray();
   };
 
