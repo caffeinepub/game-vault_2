@@ -10,13 +10,14 @@ import { CheckoutPage } from "@/components/CheckoutPage";
 import { AuthPage } from "@/components/AuthPage";
 import { DashboardPage } from "@/components/DashboardPage";
 import { AdminPage } from "@/components/AdminPage";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Page, CheckoutItem } from "@/types";
-import type { Product, UserProfile, PaymentSettings, Order } from "@/backend.d";
+import type { Product, UserProfile, PaymentSettings, Order, Ad, Membership } from "@/backend.d";
 
 export default function App() {
   const { actor, isFetching: isActorFetching } = useActor();
   const { clear: clearIdentity } = useInternetIdentity();
+  const queryClient = useQueryClient();
 
   const [showLoading, setShowLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState<Page>("store");
@@ -52,6 +53,35 @@ export default function App() {
       return actor.getPaymentSettings();
     },
     enabled: !!actor && !isActorFetching,
+  });
+
+  // Active ads (shown to non-members)
+  const { data: activeAds = [] } = useQuery<Ad[]>({
+    queryKey: ["activeAds"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listActiveAds();
+    },
+    enabled: !!actor && !isActorFetching,
+  });
+
+  // Membership status (only when user is logged in)
+  const { data: hasActiveMembership = false, refetch: refetchMembership } = useQuery<boolean>({
+    queryKey: ["activeMembership", userProfile?.username],
+    queryFn: async () => {
+      if (!actor || !userProfile) return false;
+      return actor.checkActiveMembership(userProfile.username);
+    },
+    enabled: !!actor && !isActorFetching && !!userProfile,
+  });
+
+  const { data: membershipStatus = null, refetch: refetchMembershipStatus } = useQuery<Membership | null>({
+    queryKey: ["membershipStatus", userProfile?.username],
+    queryFn: async () => {
+      if (!actor || !userProfile) return null;
+      return actor.getMembershipStatus(userProfile.username);
+    },
+    enabled: !!actor && !isActorFetching && !!userProfile,
   });
 
   // ---- Navigation ----
@@ -107,6 +137,18 @@ export default function App() {
     return actor.getCustomerOrders(username);
   }, [actor]);
 
+  const handlePurchaseMembership = useCallback(async (paymentMethod: string, paymentReference: string): Promise<bigint> => {
+    if (!actor) throw new Error("Not connected");
+    if (!userProfile) throw new Error("Not logged in");
+    const id = await actor.purchaseMembership(userProfile.username, paymentMethod, paymentReference);
+    // Invalidate membership queries so status refreshes
+    void queryClient.invalidateQueries({ queryKey: ["activeMembership", userProfile.username] });
+    void queryClient.invalidateQueries({ queryKey: ["membershipStatus", userProfile.username] });
+    void refetchMembership();
+    void refetchMembershipStatus();
+    return id;
+  }, [actor, userProfile, queryClient, refetchMembership, refetchMembershipStatus]);
+
   // Backend object for admin panel — memoised on actor to prevent infinite re-render loops
   // in AdminPage sub-tabs whose useCallbacks depend on this object.
   const adminBackend = useMemo(() => ({
@@ -141,6 +183,15 @@ export default function App() {
       actor ? actor.removeFileFromProduct(productId, fileId) : Promise.resolve(),
     listProductFilesAdmin: (productId: bigint) =>
       actor ? actor.listProductFilesAdmin(productId) : Promise.resolve([]),
+    // Ads
+    listAllAds: () => actor ? actor.listAllAds() : Promise.resolve([]),
+    createAd: (adType: string, title: string, desc: string, imageUrl: string, linkUrl: string) =>
+      actor ? actor.createAd(adType, title, desc, imageUrl, linkUrl) : Promise.resolve(BigInt(0)),
+    updateAd: (id: bigint, adType: string, title: string, desc: string, imageUrl: string, linkUrl: string, isActive: boolean) =>
+      actor ? actor.updateAd(id, adType, title, desc, imageUrl, linkUrl, isActive) : Promise.resolve(),
+    deleteAd: (id: bigint) => actor ? actor.deleteAd(id) : Promise.resolve(),
+    // Memberships
+    listAllMemberships: () => actor ? actor.listAllMemberships() : Promise.resolve([]),
   }), [actor]);
 
   const handleListProductFiles = useCallback((productId: bigint) =>
@@ -177,6 +228,9 @@ export default function App() {
               handleAdminNavigate(page);
             }}
             backend={adminBackend}
+            onAdsChanged={() => {
+              void queryClient.invalidateQueries({ queryKey: ["activeAds"] });
+            }}
           />
         </div>
         <Toaster />
@@ -214,6 +268,11 @@ export default function App() {
               onSelectProduct={setSelectedProduct}
               onSelectCheckoutItem={setCheckoutItem}
               userProfile={userProfile}
+              activeAds={activeAds}
+              hasActiveMembership={hasActiveMembership}
+              membershipStatus={membershipStatus}
+              paymentSettings={paymentSettings}
+              onPurchaseMembership={handlePurchaseMembership}
             />
           )}
 
@@ -259,6 +318,10 @@ export default function App() {
               onListProductFiles={handleListProductFiles}
               onDownloadFile={handleDownloadFile}
               products={products}
+              membershipStatus={membershipStatus}
+              hasActiveMembership={hasActiveMembership}
+              paymentSettings={paymentSettings}
+              onPurchaseMembership={handlePurchaseMembership}
             />
           )}
 

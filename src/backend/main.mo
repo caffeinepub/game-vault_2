@@ -1,28 +1,27 @@
 import Array "mo:core/Array";
 import Map "mo:core/Map";
-import Order "mo:core/Order";
-import Set "mo:core/Set";
 import List "mo:core/List";
+import Set "mo:core/Set";
 import Text "mo:core/Text";
 import Nat "mo:core/Nat";
 import Time "mo:core/Time";
 import Blob "mo:core/Blob";
 import Iter "mo:core/Iter";
-import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
+import Order "mo:core/Order";
+import Principal "mo:core/Principal";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 
-actor {
-  // Persistent Data
-  public type Username = Text;
+(actor {
+  type Username = Text;
 
-  public type UserProfile = {
+  type UserProfile = {
     username : Text;
     email : Text;
   };
 
-  public type Product = {
+  type Product = {
     id : Nat;
     name : Text;
     description : Text;
@@ -32,7 +31,7 @@ actor {
     isAvailable : Bool;
   };
 
-  public type ProductFile = {
+  type ProductFile = {
     fileId : Nat;
     productId : Nat;
     fileName : Text;
@@ -40,7 +39,7 @@ actor {
     fileData : Blob;
   };
 
-  public type Package = {
+  type Package = {
     id : Nat;
     name : Text;
     description : Text;
@@ -49,7 +48,7 @@ actor {
     isActive : Bool;
   };
 
-  public type Coupon = {
+  type Coupon = {
     code : Text;
     discountType : Text;
     discountValue : Nat;
@@ -58,7 +57,7 @@ actor {
     isActive : Bool;
   };
 
-  public type Order = {
+  type Order = {
     orderId : Nat;
     customerUsername : Username;
     itemName : Text;
@@ -71,13 +70,33 @@ actor {
     deliveryEmail : Text;
   };
 
-  public type PaymentSettings = {
+  type PaymentSettings = {
     paypalEmail : Text;
     bitcoinWallet : Text;
     ethereumWallet : Text;
     xboxInstructions : Text;
     amazonInstructions : Text;
     etsyInstructions : Text;
+  };
+
+  type Ad = {
+    id : Nat;
+    adType : Text;
+    title : Text;
+    description : Text;
+    imageUrl : Text;
+    linkUrl : Text;
+    isActive : Bool;
+    createdAt : Int;
+  };
+
+  type Membership = {
+    membershipId : Nat;
+    customerUsername : Username;
+    purchasedAt : Int;
+    expiresAt : Int;
+    paymentMethod : Text;
+    paymentReference : Text;
   };
 
   module Product {
@@ -97,13 +116,14 @@ actor {
   var nextPackageId = 1;
   var nextOrderId = 1;
   var nextFileId = 1;
+  var nextAdId = 1;
+  var nextMembershipId = 1;
+  let registeredUsers = Set.empty<Text>();
 
   let products = Map.empty<Nat, Product>();
   let packages = Map.empty<Nat, Package>();
   var userOrders = Map.empty<Username, List.List<Order>>();
   var paymentSettings : ?PaymentSettings = null;
-  let registeredUsers = Set.empty<Text>();
-  let userProfiles = Map.empty<Principal, UserProfile>();
 
   // Coupon System
   let coupons = Map.empty<Text, Coupon>();
@@ -113,11 +133,21 @@ actor {
   let productFiles = Map.empty<Nat, ProductFile>();
   let productFileIndex = Map.empty<Nat, List.List<Nat>>();
 
+  // User Profile System
+  let userProfiles = Map.empty<Principal, UserProfile>();
+
+  // Ads System
+  let ads = Map.empty<Nat, Ad>();
+
+  // Membership System
+  let memberships = Map.empty<Nat, Membership>();
+  let userMemberships = Map.empty<Username, List.List<Nat>>();
+
   // Authorization
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // User Profile Management - NO permission checks per requirements
+  // User Profile Management
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     userProfiles.get(caller);
   };
@@ -130,7 +160,7 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // User Registration - NO permission checks
+  // User Registration - NO permission checks per requirements
   public shared ({ caller }) func registerUser(username : Text, email : Text) : async () {
     if (registeredUsers.contains(username)) {
       Runtime.trap("Username already exists");
@@ -144,7 +174,7 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // Products CRUD - NO permission check (callable by anyone)
+  // Products CRUD
   public shared ({ caller }) func createProduct(
     name : Text,
     description : Text,
@@ -210,7 +240,7 @@ actor {
     products.get(id);
   };
 
-  // Subscription Packages CRUD - NO permission check (callable by anyone)
+  // Subscription Packages CRUD
   public shared ({ caller }) func createPackage(
     name : Text,
     description : Text,
@@ -272,7 +302,7 @@ actor {
     packages.get(id);
   };
 
-  // Orders with Coupon Support - NO permission checks per requirements
+  // Orders with Coupon Support
   public shared ({ caller }) func placeOrder(
     customerUsername : Username,
     itemName : Text,
@@ -341,7 +371,11 @@ actor {
     // Calculate discount
     let discountedPrice = switch (coupon.discountType) {
       case ("percentage") {
-        let percentDiscount = originalPrice * (coupon.discountValue : Nat) / 100;
+        let percentDiscount = if (originalPrice < 100) {
+          0;
+        } else {
+          (originalPrice : Nat) * coupon.discountValue / 100;
+        };
         if (percentDiscount > originalPrice) { 0 } else {
           originalPrice - percentDiscount;
         };
@@ -420,7 +454,7 @@ actor {
     };
   };
 
-  // Payment Settings - NO permission check (callable by anyone)
+  // Payment Settings
   public shared ({ caller }) func savePaymentSettings(settings : PaymentSettings) : async () {
     paymentSettings := ?settings;
   };
@@ -429,7 +463,7 @@ actor {
     paymentSettings;
   };
 
-  // Coupon System - NO permission check (callable by anyone)
+  // Coupon System
   public shared ({ caller }) func createCoupon(
     code : Text,
     discountType : Text,
@@ -522,8 +556,7 @@ actor {
     { coupon; soloUse = true };
   };
 
-  // Product File Attachments - NO permission check (callable by anyone)
-  // Admin - Attach a file to a product
+  // Product File Attachments - NO permission checks, anyone can manage attachments
   public shared ({ caller }) func attachFileToProduct(productId : Nat, fileName : Text, fileType : Text, fileData : Blob) : async Nat {
     // Validate fileType
     if (fileType != "lua" and fileType != "apk") {
@@ -559,7 +592,6 @@ actor {
     fileId;
   };
 
-  // Admin - Remove a file from a product
   public shared ({ caller }) func removeFileFromProduct(productId : Nat, fileId : Nat) : async () {
     // Validate file exists
     switch (productFiles.get(fileId)) {
@@ -580,7 +612,6 @@ actor {
     };
   };
 
-  // Admin - List all files for a product (metadata only)
   public query ({ caller }) func listProductFilesAdmin(productId : Nat) : async [{ fileId : Nat; fileName : Text; fileType : Text }] {
     switch (productFileIndex.get(productId)) {
       case (null) { return [] };
@@ -601,14 +632,18 @@ actor {
         );
         let filteredFiles = files.filter(func(f) { f != null });
         let resultFiles = filteredFiles.map(
-          func(f) { switch (f) { case (?f) { f } } }
+          func(f) {
+            switch (f) {
+              case (?f) { f };
+              case (_) { { fileId = 0; fileName = ""; fileType = "" } };
+            };
+          }
         );
         resultFiles;
       };
     };
   };
 
-  // Public - List files for a product (metadata only)
   public query ({ caller }) func listProductFiles(productId : Nat) : async [{ fileId : Nat; fileName : Text; fileType : Text }] {
     switch (productFileIndex.get(productId)) {
       case (null) { return [] };
@@ -629,14 +664,18 @@ actor {
         );
         let filteredFiles = files.filter(func(f) { f != null });
         let resultFiles = filteredFiles.map(
-          func(f) { switch (f) { case (?f) { f } } }
+          func(f) {
+            switch (f) {
+              case (?f) { f };
+              case (_) { { fileId = 0; fileName = ""; fileType = "" } };
+            };
+          }
         );
         resultFiles;
       };
     };
   };
 
-  // Download file (with purchase validation)
   public shared ({ caller }) func downloadProductFile(fileId : Nat) : async Blob {
     let file = switch (productFiles.get(fileId)) {
       case (null) { Runtime.trap("File not found") };
@@ -666,4 +705,190 @@ actor {
 
     file.fileData;
   };
-};
+
+  // Ads System - Public for viewing active ads
+  public shared ({ caller }) func createAd(
+    adType : Text,
+    title : Text,
+    description : Text,
+    imageUrl : Text,
+    linkUrl : Text,
+  ) : async Nat {
+    if (adType != "image" and adType != "text") {
+      Runtime.trap("Invalid ad type. Must be 'image' or 'text'");
+    };
+
+    let id = nextAdId;
+    let ad : Ad = {
+      id;
+      adType;
+      title;
+      description;
+      imageUrl;
+      linkUrl;
+      isActive = true;
+      createdAt = Time.now();
+    };
+
+    ads.add(id, ad);
+    nextAdId += 1;
+    id;
+  };
+
+  public shared ({ caller }) func updateAd(
+    id : Nat,
+    adType : Text,
+    title : Text,
+    description : Text,
+    imageUrl : Text,
+    linkUrl : Text,
+    isActive : Bool,
+  ) : async () {
+    if (adType != "image" and adType != "text") {
+      Runtime.trap("Invalid ad type. Must be 'image' or 'text'");
+    };
+
+    let existing = switch (ads.get(id)) {
+      case (null) { Runtime.trap("Ad not found") };
+      case (?ad) { ad };
+    };
+
+    let ad : Ad = {
+      id;
+      adType;
+      title;
+      description;
+      imageUrl;
+      linkUrl;
+      isActive;
+      createdAt = existing.createdAt;
+    };
+
+    ads.add(id, ad);
+  };
+
+  public shared ({ caller }) func deleteAd(id : Nat) : async () {
+    switch (ads.get(id)) {
+      case (null) { Runtime.trap("Ad not found") };
+      case (?_) {
+        ads.remove(id);
+      };
+    };
+  };
+
+  public query ({ caller }) func listAllAds() : async [Ad] {
+    ads.values().toArray();
+  };
+
+  public query func listActiveAds() : async [Ad] {
+    ads.values().toArray().filter(func(ad : Ad) : Bool { ad.isActive });
+  };
+
+  // Ad-Free Membership System
+  public shared ({ caller }) func purchaseMembership(
+    customerUsername : Username,
+    paymentMethod : Text,
+    paymentReference : Text,
+  ) : async Nat {
+    let membershipDuration : Int = 30 * 24 * 60 * 60 * 1_000_000_000; // 30 days in nanoseconds
+    let now = Time.now();
+
+    // Check if user has active membership
+    let expiresAt : ?Membership = switch (userMemberships.get(customerUsername)) {
+      case (null) { null };
+      case (?membershipIds) {
+        var mostRecentMembership : ?Membership = null;
+        let ids = membershipIds.toArray();
+        for (id in ids.values()) {
+          let membership = memberships.get(id);
+          switch (mostRecentMembership, membership) {
+            case (null, ?m) { mostRecentMembership := ?m };
+            case (?a, ?m) {
+              if (m.expiresAt > a.expiresAt) { mostRecentMembership := ?m };
+            };
+            case _ {};
+          };
+        };
+        mostRecentMembership;
+      };
+    };
+
+    let finalExpiresAt = switch (expiresAt) {
+      case (null) { now + membershipDuration };
+      case (?m) {
+        if (m.expiresAt > now) {
+          // Active membership exists, extend from current expiry
+          m.expiresAt + membershipDuration;
+        } else {
+          // Expired membership, start from now
+          now + membershipDuration;
+        };
+      };
+    };
+
+    let membershipId = nextMembershipId;
+    let membership : Membership = {
+      membershipId;
+      customerUsername;
+      purchasedAt = now;
+      expiresAt = finalExpiresAt;
+      paymentMethod;
+      paymentReference;
+    };
+
+    memberships.add(membershipId, membership);
+
+    // Update user memberships index
+    let existingMemberships = switch (userMemberships.get(customerUsername)) {
+      case (?ids) { ids };
+      case (null) { List.empty<Nat>() };
+    };
+    existingMemberships.add(membershipId);
+    userMemberships.add(customerUsername, existingMemberships);
+
+    nextMembershipId += 1;
+    membershipId;
+  };
+
+  public query ({ caller }) func getMembershipStatus(customerUsername : Username) : async ?Membership {
+    switch (userMemberships.get(customerUsername)) {
+      case (null) { null };
+      case (?membershipIds) {
+        var mostRecentMembership : ?Membership = null;
+        let ids = membershipIds.toArray();
+        for (id in ids.values()) {
+          let membership = memberships.get(id);
+          switch (mostRecentMembership, membership) {
+            case (null, ?m) { mostRecentMembership := ?m };
+            case (?a, ?m) {
+              if (m.purchasedAt > a.purchasedAt) { mostRecentMembership := ?m };
+            };
+            case _ {};
+          };
+        };
+        mostRecentMembership;
+      };
+    };
+  };
+
+  public query ({ caller }) func checkActiveMembership(customerUsername : Username) : async Bool {
+    switch (userMemberships.get(customerUsername)) {
+      case (null) { false };
+      case (?membershipIds) {
+        let now = Time.now();
+        membershipIds.toArray().any(
+          func(id) {
+            switch (memberships.get(id)) {
+              case (null) { false };
+              case (?m) { m.expiresAt > now };
+            };
+          }
+        );
+      };
+    };
+  };
+
+  public query ({ caller }) func listAllMemberships() : async [Membership] {
+    memberships.values().toArray();
+  };
+});

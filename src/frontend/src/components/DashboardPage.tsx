@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserCircle, LogOut, ShoppingBag, Clock, Mail, Save, Loader2, Download, FileCode, FileArchive } from "lucide-react";
+import { UserCircle, LogOut, ShoppingBag, Clock, Mail, Save, Loader2, Download, FileCode, FileArchive, Crown, Copy, ClipboardCheck, CheckCircle2, X } from "lucide-react";
+import { SiPaypal, SiBitcoin, SiEthereum } from "react-icons/si";
 import { toast } from "sonner";
 import type { Page } from "@/types";
-import type { Order, UserProfile, Product } from "@/backend.d";
+import type { Order, UserProfile, Product, Membership, PaymentSettings } from "@/backend.d";
 
 interface ProductFileInfo {
   fileName: string;
@@ -23,6 +24,10 @@ interface DashboardPageProps {
   onListProductFiles?: (productId: bigint) => Promise<ProductFileInfo[]>;
   onDownloadFile?: (fileId: bigint) => Promise<Uint8Array>;
   products?: Product[];
+  membershipStatus?: Membership | null;
+  hasActiveMembership?: boolean;
+  paymentSettings?: PaymentSettings | null;
+  onPurchaseMembership?: (paymentMethod: string, paymentRef: string) => Promise<bigint>;
 }
 
 function formatPrice(pricePence: bigint): string {
@@ -228,6 +233,10 @@ export function DashboardPage({
   onListProductFiles,
   onDownloadFile,
   products = [],
+  membershipStatus = null,
+  hasActiveMembership = false,
+  paymentSettings = null,
+  onPurchaseMembership,
 }: DashboardPageProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
@@ -384,7 +393,7 @@ export function DashboardPage({
 
         {/* Stats row */}
         <div
-          className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8"
+          className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6"
           style={{ animation: "fade-in-up 0.5s 0.1s ease-out both" }}
         >
           <StatCard label="Total Orders" value={orders.length.toString()} icon="📦" />
@@ -399,6 +408,57 @@ export function DashboardPage({
             value={orders.filter((o) => o.status.toLowerCase() === "accepted").length.toString()}
             icon="✅"
           />
+        </div>
+
+        {/* Membership section */}
+        <div
+          className="glass-card p-5 mb-8"
+          style={{
+            animation: "fade-in-up 0.5s 0.15s ease-out both",
+            borderColor: hasActiveMembership ? "oklch(0.82 0.18 80 / 0.4)" : "oklch(0.3 0.08 285)",
+            boxShadow: hasActiveMembership ? "0 0 20px oklch(0.82 0.18 80 / 0.08)" : "none",
+          }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Crown className="w-4 h-4" style={{ color: "oklch(0.82 0.18 80)" }} />
+            <h2 className="font-body font-bold text-sm text-foreground/80">Ad-Free Membership</h2>
+          </div>
+
+          {hasActiveMembership ? (
+            <div className="flex items-start gap-3">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: "oklch(0.82 0.18 80 / 0.2)", border: "2px solid oklch(0.82 0.18 80 / 0.5)" }}
+              >
+                <Crown className="w-5 h-5" style={{ color: "oklch(0.82 0.18 80)" }} />
+              </div>
+              <div>
+                <p className="font-body font-bold text-sm mb-0.5" style={{ color: "oklch(0.82 0.18 80)" }}>
+                  ✓ Active Member
+                </p>
+                {membershipStatus && (
+                  <p className="text-foreground/60 font-body text-sm">
+                    Active until{" "}
+                    <span className="font-semibold text-foreground/80">
+                      {new Date(Number(membershipStatus.expiresAt) / 1_000_000).toLocaleDateString("en-GB", {
+                        day: "2-digit", month: "long", year: "numeric",
+                      })}
+                    </span>
+                  </p>
+                )}
+                <p className="text-foreground/40 font-body text-xs mt-1">
+                  You're browsing without ads. Repurchase next month to continue.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <DashboardMembershipCheckout
+              paymentSettings={paymentSettings}
+              onPurchase={onPurchaseMembership}
+              onNavigate={onNavigate}
+              userProfile={userProfile}
+            />
+          )}
         </div>
 
         {/* Orders table */}
@@ -506,6 +566,238 @@ function StatCard({
         </p>
         <p className="font-body text-xs text-foreground/50 mt-0.5">{label}</p>
       </div>
+    </div>
+  );
+}
+
+type DashMembershipPaymentMethod = "paypal" | "bitcoin" | "ethereum" | "xbox" | "amazon" | "etsy";
+
+const DASH_PAYMENT_OPTIONS: Array<{
+  id: DashMembershipPaymentMethod;
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  getAddress: (s: PaymentSettings) => string;
+  placeholder: string;
+  isCrypto: boolean;
+}> = [
+  {
+    id: "paypal",
+    label: "PayPal",
+    icon: <SiPaypal className="w-4 h-4" />,
+    color: "oklch(0.55 0.2 240)",
+    getAddress: (s) => s.paypalEmail,
+    placeholder: "PayPal transaction ID",
+    isCrypto: true,
+  },
+  {
+    id: "bitcoin",
+    label: "Bitcoin",
+    icon: <SiBitcoin className="w-4 h-4" />,
+    color: "oklch(0.75 0.18 60)",
+    getAddress: (s) => s.bitcoinWallet,
+    placeholder: "Bitcoin transaction ID",
+    isCrypto: true,
+  },
+  {
+    id: "ethereum",
+    label: "Ethereum",
+    icon: <SiEthereum className="w-4 h-4" />,
+    color: "oklch(0.65 0.15 270)",
+    getAddress: (s) => s.ethereumWallet,
+    placeholder: "Ethereum transaction hash",
+    isCrypto: true,
+  },
+  {
+    id: "xbox",
+    label: "Xbox Gift Card",
+    icon: <span>🎮</span>,
+    color: "oklch(0.55 0.2 145)",
+    getAddress: (s) => s.xboxInstructions || "Contact admin",
+    placeholder: "Xbox gift card code",
+    isCrypto: false,
+  },
+  {
+    id: "amazon",
+    label: "Amazon Gift Card",
+    icon: <span>📦</span>,
+    color: "oklch(0.7 0.18 60)",
+    getAddress: (s) => s.amazonInstructions || "Contact admin",
+    placeholder: "Amazon gift card code",
+    isCrypto: false,
+  },
+  {
+    id: "etsy",
+    label: "Etsy Gift Card",
+    icon: <span>🛍️</span>,
+    color: "oklch(0.65 0.2 30)",
+    getAddress: (s) => s.etsyInstructions || "Contact admin",
+    placeholder: "Etsy gift card code",
+    isCrypto: false,
+  },
+];
+
+function DashboardMembershipCheckout({
+  paymentSettings,
+  onPurchase,
+  onNavigate,
+  userProfile,
+}: {
+  paymentSettings: PaymentSettings | null;
+  onPurchase?: (paymentMethod: string, paymentRef: string) => Promise<bigint>;
+  onNavigate: (page: Page) => void;
+  userProfile: UserProfile;
+}) {
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<DashMembershipPaymentMethod | null>(null);
+  const [paymentRef, setPaymentRef] = useState("");
+  const [isPlacing, setIsPlacing] = useState(false);
+  const [purchased, setPurchased] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = (text: string, key: string) => {
+    void navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard!");
+    setCopiedField(key);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handlePurchase = async () => {
+    if (!selectedMethod) { toast.error("Select a payment method"); return; }
+    if (!paymentRef.trim()) { toast.error("Enter payment reference"); return; }
+    if (!onPurchase) { toast.error("Purchase not available"); return; }
+
+    setIsPlacing(true);
+    try {
+      await onPurchase(selectedMethod, paymentRef.trim());
+      setPurchased(true);
+      toast.success("Membership purchased! Ads are now hidden.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to purchase. Try again.");
+    } finally {
+      setIsPlacing(false);
+    }
+  };
+
+  if (purchased) {
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "oklch(0.82 0.18 80 / 0.1)", border: "1px solid oklch(0.82 0.18 80 / 0.3)" }}>
+        <Crown className="w-5 h-5" style={{ color: "oklch(0.82 0.18 80)" }} />
+        <p className="font-body text-sm" style={{ color: "oklch(0.82 0.18 80)" }}>Membership activated! Refresh to see ads removed.</p>
+      </div>
+    );
+  }
+
+  if (!showCheckout) {
+    return (
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-foreground/60 font-body text-sm">Browse without ads — just £0.05/month</p>
+          <p className="text-foreground/40 font-body text-xs mt-0.5">One-time monthly purchase, no auto-renewal</p>
+        </div>
+        <Button
+          size="sm"
+          className="font-body font-bold text-sm shrink-0"
+          style={{
+            background: "linear-gradient(135deg, oklch(0.7 0.2 75), oklch(0.78 0.18 90))",
+            color: "oklch(0.12 0.04 285)",
+            boxShadow: "0 0 15px oklch(0.82 0.18 80 / 0.25)",
+          }}
+          onClick={() => setShowCheckout(true)}
+        >
+          <Crown className="w-3.5 h-3.5 mr-1.5" />
+          Buy — £0.05
+        </Button>
+      </div>
+    );
+  }
+
+  const selectedOpt = DASH_PAYMENT_OPTIONS.find((o) => o.id === selectedMethod);
+  const address = selectedOpt && paymentSettings ? selectedOpt.getAddress(paymentSettings) : "";
+
+  return (
+    <div style={{ animation: "fade-in 0.2s ease-out both" }}>
+      <div className="flex items-center justify-between mb-3">
+        <p className="font-body text-sm text-foreground/70">Select payment method</p>
+        <button
+          type="button"
+          onClick={() => setShowCheckout(false)}
+          className="p-1 rounded text-foreground/40 hover:text-foreground/70 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+        {DASH_PAYMENT_OPTIONS.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => setSelectedMethod(opt.id)}
+            className="flex items-center gap-1.5 p-2 rounded-lg font-body text-xs font-medium transition-all text-left"
+            style={{
+              background: selectedMethod === opt.id ? `oklch(${opt.color.replace("oklch(", "").split(")")[0]} / 0.15)` : "oklch(0.15 0.05 285 / 0.6)",
+              border: `1px solid ${selectedMethod === opt.id ? opt.color : "oklch(0.3 0.08 285)"}`,
+              color: selectedMethod === opt.id ? opt.color : "oklch(0.6 0.04 285)",
+            }}
+          >
+            <span style={{ color: opt.color }}>{opt.icon}</span>
+            <span className="truncate">{opt.label}</span>
+            {selectedMethod === opt.id && <CheckCircle2 className="w-3 h-3 ml-auto shrink-0" style={{ color: opt.color }} />}
+          </button>
+        ))}
+      </div>
+
+      {selectedMethod && address && (
+        <div
+          className="rounded-lg p-2.5 mb-2.5 flex items-center gap-2"
+          style={{ background: "oklch(0.08 0.04 285)", border: `1px solid ${selectedOpt?.color ?? "oklch(0.3 0.08 285)"} / 0.25)` }}
+        >
+          <code className="font-body text-xs break-all flex-1" style={{ color: selectedOpt?.color }}>
+            {address}
+          </code>
+          {selectedOpt?.isCrypto && (
+            <button
+              type="button"
+              onClick={() => handleCopy(address, "dash-addr")}
+              className="shrink-0 p-1.5 rounded hover:bg-muted/50 transition-colors"
+            >
+              {copiedField === "dash-addr"
+                ? <ClipboardCheck className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.2 145)" }} />
+                : <Copy className="w-3.5 h-3.5 text-foreground/40" />
+              }
+            </button>
+          )}
+        </div>
+      )}
+
+      {selectedMethod && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            id="dash-membership-ref"
+            value={paymentRef}
+            onChange={(e) => setPaymentRef(e.target.value)}
+            placeholder={selectedOpt?.placeholder ?? "Payment reference"}
+            className="flex-1 px-3 py-2 rounded-lg font-body text-xs text-foreground placeholder:text-foreground/30 outline-none"
+            style={{ background: "oklch(0.15 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}
+          />
+          <Button
+            size="sm"
+            className="font-body font-bold text-xs shrink-0"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.7 0.2 75), oklch(0.78 0.18 90))",
+              color: "oklch(0.12 0.04 285)",
+            }}
+            onClick={() => void handlePurchase()}
+            disabled={isPlacing || !paymentRef.trim()}
+          >
+            {isPlacing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crown className="w-3.5 h-3.5" />}
+            <span className="ml-1">{isPlacing ? "..." : "Buy"}</span>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

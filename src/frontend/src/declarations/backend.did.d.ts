@@ -10,6 +10,16 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Ad {
+  'id' : bigint,
+  'title' : string,
+  'linkUrl' : string,
+  'createdAt' : bigint,
+  'description' : string,
+  'isActive' : boolean,
+  'imageUrl' : string,
+  'adType' : string,
+}
 export interface Coupon {
   'discountValue' : bigint,
   'code' : string,
@@ -17,6 +27,14 @@ export interface Coupon {
   'usedCount' : bigint,
   'isActive' : boolean,
   'maxUses' : bigint,
+}
+export interface Membership {
+  'paymentMethod' : string,
+  'expiresAt' : bigint,
+  'customerUsername' : Username,
+  'purchasedAt' : bigint,
+  'membershipId' : bigint,
+  'paymentReference' : string,
 }
 export interface Order {
   'status' : string,
@@ -67,6 +85,8 @@ export interface _SERVICE {
     [bigint, string, string, Uint8Array],
     bigint
   >,
+  'checkActiveMembership' : ActorMethod<[Username], boolean>,
+  'createAd' : ActorMethod<[string, string, string, string, string], bigint>,
   'createCoupon' : ActorMethod<
     [string, string, bigint, bigint, boolean],
     undefined
@@ -79,6 +99,7 @@ export interface _SERVICE {
     [string, string, bigint, string, string],
     bigint
   >,
+  'deleteAd' : ActorMethod<[bigint], undefined>,
   'deleteCoupon' : ActorMethod<[string], undefined>,
   'deletePackage' : ActorMethod<[bigint], undefined>,
   'deleteProduct' : ActorMethod<[bigint], undefined>,
@@ -86,13 +107,17 @@ export interface _SERVICE {
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCustomerOrders' : ActorMethod<[Username], Array<Order>>,
+  'getMembershipStatus' : ActorMethod<[Username], [] | [Membership]>,
   'getPackage' : ActorMethod<[bigint], [] | [Package]>,
   'getPaymentSettings' : ActorMethod<[], [] | [PaymentSettings]>,
   'getProduct' : ActorMethod<[bigint], [] | [Product]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'listActiveAds' : ActorMethod<[], Array<Ad>>,
   'listActivePackages' : ActorMethod<[], Array<Package>>,
+  'listAllAds' : ActorMethod<[], Array<Ad>>,
   'listAllCoupons' : ActorMethod<[], Array<Coupon>>,
+  'listAllMemberships' : ActorMethod<[], Array<Membership>>,
   'listAllOrders' : ActorMethod<[], Array<[Username, Array<Order>]>>,
   'listAvailableProducts' : ActorMethod<[], Array<Product>>,
   'listProductFiles' : ActorMethod<
@@ -107,10 +132,15 @@ export interface _SERVICE {
     [Username, string, bigint, string, string, [] | [string], string],
     bigint
   >,
+  'purchaseMembership' : ActorMethod<[Username, string, string], bigint>,
   'registerUser' : ActorMethod<[string, string], undefined>,
   'removeFileFromProduct' : ActorMethod<[bigint, bigint], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'savePaymentSettings' : ActorMethod<[PaymentSettings], undefined>,
+  'updateAd' : ActorMethod<
+    [bigint, string, string, string, string, string, boolean],
+    undefined
+  >,
   'updateCoupon' : ActorMethod<
     [string, string, bigint, bigint, boolean],
     undefined

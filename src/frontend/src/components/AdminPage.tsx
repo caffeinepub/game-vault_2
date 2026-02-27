@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Shield, ShieldCheck, Package, ShoppingBag,
   CreditCard, Plus, Trash2, Edit, Check, X, ChevronRight,
-  ArrowLeft, Save, Tag, ToggleLeft, ToggleRight, Mail, Paperclip, Upload, FileCode, FileArchive
+  ArrowLeft, Save, Tag, ToggleLeft, ToggleRight, Mail, Paperclip, Upload, FileCode, FileArchive,
+  Megaphone, Users, Image, AlignLeft, ExternalLink, Globe
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Product, Package as BackendPackage, Order, PaymentSettings, Coupon } from "@/backend.d";
+import type { Product, Package as BackendPackage, Order, PaymentSettings, Coupon, Ad, Membership } from "@/backend.d";
 
 interface ProductFileInfo {
   fileName: string;
@@ -25,6 +26,7 @@ interface ProductFileInfo {
 
 interface AdminPageProps {
   onNavigate: (page: string) => void;
+  onAdsChanged?: () => void;
   backend: {
     isCallerAdmin: () => Promise<boolean>;
     listAvailableProducts: () => Promise<Product[]>;
@@ -46,10 +48,17 @@ interface AdminPageProps {
     attachFileToProduct: (productId: bigint, fileName: string, fileType: string, fileData: Uint8Array) => Promise<bigint>;
     removeFileFromProduct: (productId: bigint, fileId: bigint) => Promise<void>;
     listProductFilesAdmin: (productId: bigint) => Promise<ProductFileInfo[]>;
+    // Ads
+    listAllAds: () => Promise<Ad[]>;
+    createAd: (adType: string, title: string, desc: string, imageUrl: string, linkUrl: string) => Promise<bigint>;
+    updateAd: (id: bigint, adType: string, title: string, desc: string, imageUrl: string, linkUrl: string, isActive: boolean) => Promise<void>;
+    deleteAd: (id: bigint) => Promise<void>;
+    // Memberships
+    listAllMemberships: () => Promise<Membership[]>;
   };
 }
 
-type AdminTab = "orders" | "products" | "subscriptions" | "payments" | "coupons";
+type AdminTab = "orders" | "products" | "subscriptions" | "payments" | "coupons" | "ads" | "memberships";
 type PinState = "idle" | "entered" | "verified" | "denied";
 
 const CORRECT_PIN = "2006";
@@ -1467,6 +1476,394 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   );
 }
 
+// ---- Ads Tab ----
+interface AdFormData {
+  adType: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
+  isActive: boolean;
+}
+
+function AdsTab({ backend, onAdsChanged }: { backend: AdminPageProps["backend"]; onAdsChanged?: () => void }) {
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<bigint | null>(null);
+  const [togglingId, setTogglingId] = useState<bigint | null>(null);
+  const [form, setForm] = useState<AdFormData>({
+    adType: "text", title: "", description: "", imageUrl: "", linkUrl: "", isActive: true,
+  });
+
+  const loadAds = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await backend.listAllAds();
+      setAds(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load ads");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [backend]);
+
+  useEffect(() => { void loadAds(); }, [loadAds]);
+
+  const resetForm = () => {
+    setForm({ adType: "text", title: "", description: "", imageUrl: "", linkUrl: "", isActive: true });
+    setEditingAd(null);
+    setShowForm(false);
+  };
+
+  const openEdit = (ad: Ad) => {
+    setForm({
+      adType: ad.adType,
+      title: ad.title,
+      description: ad.description,
+      imageUrl: ad.imageUrl,
+      linkUrl: ad.linkUrl,
+      isActive: ad.isActive,
+    });
+    setEditingAd(ad);
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.title.trim()) { toast.error("Ad title is required"); return; }
+    if (form.adType === "image" && !form.imageUrl.trim()) { toast.error("Image URL is required for image ads"); return; }
+
+    setIsSaving(true);
+    try {
+      if (editingAd) {
+        await backend.updateAd(editingAd.id, form.adType, form.title.trim(), form.description.trim(), form.imageUrl.trim(), form.linkUrl.trim(), form.isActive);
+        toast.success("Ad updated!");
+      } else {
+        await backend.createAd(form.adType, form.title.trim(), form.description.trim(), form.imageUrl.trim(), form.linkUrl.trim());
+        toast.success("Ad created!");
+      }
+      resetForm();
+      void loadAds();
+      onAdsChanged?.();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save ad");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: bigint) => {
+    setDeletingId(id);
+    try {
+      await backend.deleteAd(id);
+      toast.success("Ad deleted");
+      void loadAds();
+      onAdsChanged?.();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete ad");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleToggle = async (ad: Ad) => {
+    setTogglingId(ad.id);
+    try {
+      await backend.updateAd(ad.id, ad.adType, ad.title, ad.description, ad.imageUrl, ad.linkUrl, !ad.isActive);
+      toast.success(ad.isActive ? "Ad deactivated" : "Ad activated");
+      void loadAds();
+      onAdsChanged?.();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to toggle ad");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const inputStyle = { background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-body font-bold text-foreground">{ads.length} Ads</h3>
+        <Button
+          size="sm"
+          className="btn-gradient text-white font-body font-semibold"
+          onClick={() => { resetForm(); setShowForm(true); }}
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Create Ad
+        </Button>
+      </div>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
+        <DialogContent className="font-body max-w-lg" style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}>
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl text-foreground flex items-center gap-2">
+              <Megaphone className="w-5 h-5" style={{ color: "oklch(0.7 0.22 45)" }} />
+              {editingAd ? "Edit Ad" : "Create Ad"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <FormField label="Ad Type *">
+              <Select value={form.adType} onValueChange={(v) => setForm((p) => ({ ...p, adType: v, imageUrl: "" }))}>
+                <SelectTrigger style={inputStyle}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent style={{ background: "oklch(0.15 0.05 285)" }}>
+                  <SelectItem value="text">
+                    <span className="flex items-center gap-2"><AlignLeft className="w-4 h-4" /> Text Ad</span>
+                  </SelectItem>
+                  <SelectItem value="image">
+                    <span className="flex items-center gap-2"><Image className="w-4 h-4" /> Image Ad</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField label="Title *">
+              <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Ad headline..." style={inputStyle} />
+            </FormField>
+
+            <FormField label="Description">
+              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Ad description or body text..." className="resize-none" rows={3} style={inputStyle} />
+            </FormField>
+
+            {form.adType === "image" && (
+              <FormField label="Image URL *">
+                <Input value={form.imageUrl} onChange={(e) => setForm((p) => ({ ...p, imageUrl: e.target.value }))} placeholder="https://example.com/banner.jpg" style={inputStyle} />
+              </FormField>
+            )}
+
+            <FormField label="Link URL (optional)">
+              <Input value={form.linkUrl} onChange={(e) => setForm((p) => ({ ...p, linkUrl: e.target.value }))} placeholder="https://..." style={inputStyle} />
+            </FormField>
+
+            <div className="flex items-center gap-3">
+              <Switch checked={form.isActive} onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v }))} />
+              <span className="font-body text-sm text-foreground/70">
+                {form.isActive ? "Active (showing on store)" : "Inactive (hidden from store)"}
+              </span>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={resetForm} className="font-body text-foreground/60">Cancel</Button>
+            <Button className="btn-gradient text-white font-body font-semibold" onClick={() => void handleSave()} disabled={isSaving}>
+              {isSaving
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+                : <><Save className="w-4 h-4 mr-2" />Save Ad</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {(["a", "b", "c"] as const).map((sk) => (
+            <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+          ))}
+        </div>
+      ) : ads.length === 0 ? (
+        <div className="glass-card p-10 text-center">
+          <Megaphone className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="font-body text-foreground/50 mb-4">No ads yet</p>
+          <Button className="btn-gradient text-white font-body font-semibold" size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-1.5" />Create First Ad
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {ads.map((ad) => (
+            <div key={ad.id.toString()} className="glass-card p-4 flex items-start gap-3">
+              {/* Type icon */}
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                style={{
+                  background: ad.adType === "image" ? "oklch(0.55 0.2 240 / 0.15)" : "oklch(0.7 0.22 45 / 0.15)",
+                  border: `1px solid ${ad.adType === "image" ? "oklch(0.55 0.2 240 / 0.35)" : "oklch(0.7 0.22 45 / 0.35)"}`,
+                }}
+              >
+                {ad.adType === "image"
+                  ? <Image className="w-4 h-4" style={{ color: "oklch(0.65 0.2 240)" }} />
+                  : <AlignLeft className="w-4 h-4" style={{ color: "oklch(0.7 0.22 45)" }} />
+                }
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="font-body font-semibold text-foreground text-sm truncate">{ad.title}</span>
+                  <Badge
+                    className="font-body text-xs px-1.5 py-0.5"
+                    style={{
+                      background: ad.adType === "image" ? "oklch(0.55 0.2 240 / 0.15)" : "oklch(0.7 0.22 45 / 0.15)",
+                      color: ad.adType === "image" ? "oklch(0.65 0.2 240)" : "oklch(0.7 0.22 45)",
+                      border: `1px solid ${ad.adType === "image" ? "oklch(0.55 0.2 240 / 0.35)" : "oklch(0.7 0.22 45 / 0.35)"}`,
+                    }}
+                  >
+                    {ad.adType === "image" ? "Image" : "Text"}
+                  </Badge>
+                  <Badge
+                    className="font-body text-xs px-1.5 py-0.5"
+                    style={{
+                      background: ad.isActive ? "oklch(0.55 0.2 145 / 0.15)" : "oklch(0.2 0.04 285 / 0.4)",
+                      color: ad.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)",
+                      border: `1px solid ${ad.isActive ? "oklch(0.55 0.2 145 / 0.4)" : "oklch(0.3 0.04 285)"}`,
+                    }}
+                  >
+                    {ad.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+                {ad.description && (
+                  <p className="text-foreground/50 font-body text-xs truncate">{ad.description}</p>
+                )}
+                {ad.linkUrl && (
+                  <p className="text-foreground/30 font-body text-xs flex items-center gap-1 mt-0.5">
+                    <Globe className="w-3 h-3" />
+                    {ad.linkUrl}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Toggle */}
+                <button
+                  type="button"
+                  onClick={() => void handleToggle(ad)}
+                  disabled={togglingId === ad.id}
+                  className="p-2 rounded-lg hover:bg-muted/40 transition-colors"
+                  style={{ color: ad.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)" }}
+                  title={ad.isActive ? "Deactivate" : "Activate"}
+                >
+                  {togglingId === ad.id
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : ad.isActive
+                      ? <ToggleRight className="w-4 h-4" />
+                      : <ToggleLeft className="w-4 h-4" />
+                  }
+                </button>
+                {/* Edit */}
+                <button
+                  type="button"
+                  onClick={() => openEdit(ad)}
+                  className="p-2 rounded-lg hover:bg-muted/40 transition-colors"
+                  style={{ color: "oklch(0.62 0.27 355)" }}
+                  title="Edit"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                {/* Delete */}
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(ad.id)}
+                  disabled={deletingId === ad.id}
+                  className="p-2 rounded-lg hover:bg-destructive/10 transition-colors"
+                  style={{ color: "oklch(0.7 0.25 25)" }}
+                  title="Delete"
+                >
+                  {deletingId === ad.id
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Trash2 className="w-4 h-4" />
+                  }
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Memberships Tab ----
+function formatDateFromNano(nanos: bigint): string {
+  const ms = Number(nanos) / 1_000_000;
+  return new Date(ms).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function MembershipsTab({ backend }: { backend: AdminPageProps["backend"] }) {
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsLoading(true);
+    backend.listAllMemberships()
+      .then((data) => setMemberships(data.sort((a, b) => Number(b.purchasedAt - a.purchasedAt))))
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to load memberships");
+      })
+      .finally(() => setIsLoading(false));
+  }, [backend]);
+
+  const nowNano = BigInt(Date.now()) * 1_000_000n;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {(["a", "b", "c"] as const).map((sk) => (
+          <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (memberships.length === 0) {
+    return (
+      <div className="glass-card p-10 text-center">
+        <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+        <p className="font-body text-foreground/50">No memberships yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {memberships.map((m) => {
+        const isActive = m.expiresAt > nowNano;
+        return (
+          <div key={m.membershipId.toString()} className="glass-card p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="font-body font-semibold text-foreground text-sm">{m.customerUsername}</span>
+                  <Badge
+                    className="font-body text-xs px-1.5 py-0.5"
+                    style={{
+                      background: isActive ? "oklch(0.55 0.2 145 / 0.15)" : "oklch(0.2 0.04 285 / 0.4)",
+                      color: isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)",
+                      border: `1px solid ${isActive ? "oklch(0.55 0.2 145 / 0.4)" : "oklch(0.3 0.04 285)"}`,
+                    }}
+                  >
+                    {isActive ? "Active" : "Expired"}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-body text-foreground/50">
+                  <span>Purchased: {formatDateFromNano(m.purchasedAt)}</span>
+                  <span style={{ color: isActive ? "oklch(0.65 0.2 145)" : "oklch(0.7 0.25 25)" }}>
+                    Expires: {formatDateFromNano(m.expiresAt)}
+                  </span>
+                  <span>💳 {m.paymentMethod}</span>
+                  <span className="font-mono text-foreground/40 max-w-32 truncate" title={m.paymentReference}>
+                    Ref: {m.paymentReference}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ---- Helper ----
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -1478,7 +1875,7 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 }
 
 // ---- Main AdminPage ----
-export function AdminPage({ onNavigate, backend }: AdminPageProps) {
+export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps) {
   const [isAuthed, setIsAuthed] = useState(false);
 
   const handlePinSuccess = () => {
@@ -1492,9 +1889,11 @@ export function AdminPage({ onNavigate, backend }: AdminPageProps) {
   const TAB_CONFIG: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: "orders", label: "Orders", icon: <ShoppingBag className="w-4 h-4" /> },
     { id: "products", label: "Products", icon: <Package className="w-4 h-4" /> },
-    { id: "subscriptions", label: "Subscriptions", icon: <ChevronRight className="w-4 h-4" /> },
+    { id: "subscriptions", label: "Subs", icon: <ChevronRight className="w-4 h-4" /> },
     { id: "payments", label: "Payments", icon: <CreditCard className="w-4 h-4" /> },
     { id: "coupons", label: "Coupons", icon: <Tag className="w-4 h-4" /> },
+    { id: "ads", label: "Ads", icon: <Megaphone className="w-4 h-4" /> },
+    { id: "memberships", label: "Members", icon: <Users className="w-4 h-4" /> },
   ];
 
   return (
@@ -1563,6 +1962,12 @@ export function AdminPage({ onNavigate, backend }: AdminPageProps) {
             </TabsContent>
             <TabsContent value="coupons">
               <CouponsTab backend={backend} />
+            </TabsContent>
+            <TabsContent value="ads">
+              <AdsTab backend={backend} onAdsChanged={onAdsChanged} />
+            </TabsContent>
+            <TabsContent value="memberships">
+              <MembershipsTab backend={backend} />
             </TabsContent>
           </div>
         </Tabs>
