@@ -185,6 +185,19 @@ export const idlService = IDL.Service({
       ],
       ['query'],
     ),
+  'listProductFilesByName' : IDL.Func(
+      [IDL.Text],
+      [
+        IDL.Vec(
+          IDL.Record({
+            'fileName' : IDL.Text,
+            'fileType' : IDL.Text,
+            'fileId' : IDL.Nat,
+          })
+        ),
+      ],
+      ['query'],
+    ),
   'placeOrder' : IDL.Func(
       [
         Username,
@@ -407,6 +420,19 @@ export const idlFactory = ({ IDL }) => {
       ),
     'listProductFilesAdmin' : IDL.Func(
         [IDL.Nat],
+        [
+          IDL.Vec(
+            IDL.Record({
+              'fileName' : IDL.Text,
+              'fileType' : IDL.Text,
+              'fileId' : IDL.Nat,
+            })
+          ),
+        ],
+        ['query'],
+      ),
+    'listProductFilesByName' : IDL.Func(
+        [IDL.Text],
         [
           IDL.Vec(
             IDL.Record({

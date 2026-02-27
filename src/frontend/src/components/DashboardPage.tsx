@@ -22,6 +22,7 @@ interface DashboardPageProps {
   onLoadOrders: (username: string) => Promise<Order[]>;
   onUpdateEmail: (newEmail: string) => Promise<void>;
   onListProductFiles?: (productId: bigint) => Promise<ProductFileInfo[]>;
+  onListFilesByName?: (productName: string) => Promise<ProductFileInfo[]>;
   onDownloadFile?: (fileId: bigint) => Promise<Uint8Array>;
   products?: Product[];
   membershipStatus?: Membership | null;
@@ -114,11 +115,13 @@ function OrderDownloadSection({
   order,
   products,
   onListProductFiles,
+  onListFilesByName,
   onDownloadFile,
 }: {
   order: Order;
-  products: Product[];
-  onListProductFiles: (productId: bigint) => Promise<ProductFileInfo[]>;
+  products?: Product[];
+  onListProductFiles?: (productId: bigint) => Promise<ProductFileInfo[]>;
+  onListFilesByName?: (productName: string) => Promise<ProductFileInfo[]>;
   onDownloadFile: (fileId: bigint) => Promise<Uint8Array>;
 }) {
   const [files, setFiles] = useState<ProductFileInfo[]>([]);
@@ -126,23 +129,30 @@ function OrderDownloadSection({
   const [downloadingId, setDownloadingId] = useState<bigint | null>(null);
 
   const loadFiles = useCallback(async () => {
-    // find the matching product by name
-    const product = products.find(
-      (p) => p.name.toLowerCase() === order.itemName.toLowerCase()
-    );
-    if (!product) {
-      setIsLoading(false);
-      return;
-    }
     try {
-      const result = await onListProductFiles(product.id);
-      setFiles(result);
+      if (onListFilesByName) {
+        // Primary path: look up by product name — works even if the product
+        // has been marked unavailable and is no longer in the products list.
+        const result = await onListFilesByName(order.itemName);
+        setFiles(result);
+      } else if (onListProductFiles && products) {
+        // Fallback: look up the product id from the products array first.
+        const product = products.find(
+          (p) => p.name.trim().toLowerCase() === order.itemName.trim().toLowerCase()
+        );
+        if (!product) {
+          setIsLoading(false);
+          return;
+        }
+        const result = await onListProductFiles(product.id);
+        setFiles(result);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [products, order.itemName, onListProductFiles]);
+  }, [onListFilesByName, onListProductFiles, products, order.itemName]);
 
   useEffect(() => {
     void loadFiles();
@@ -231,6 +241,7 @@ export function DashboardPage({
   onLoadOrders,
   onUpdateEmail,
   onListProductFiles,
+  onListFilesByName,
   onDownloadFile,
   products = [],
   membershipStatus = null,
@@ -496,7 +507,13 @@ export function DashboardPage({
             <div className="space-y-3">
               {orders.map((order) => {
                 const isAccepted = order.status.toLowerCase() === "accepted";
-                const canDownload = isAccepted && !!onListProductFiles && !!onDownloadFile && products.length > 0;
+                // Can download if the order is accepted AND we have either the
+                // name-based lookup (preferred) or the id-based fallback, plus
+                // a download handler.
+                const canDownload =
+                  isAccepted &&
+                  !!onDownloadFile &&
+                  (!!onListFilesByName || !!onListProductFiles);
                 return (
                   <div
                     key={order.orderId.toString()}
@@ -526,6 +543,7 @@ export function DashboardPage({
                         order={order}
                         products={products}
                         onListProductFiles={onListProductFiles}
+                        onListFilesByName={onListFilesByName}
                         onDownloadFile={onDownloadFile}
                       />
                     )}

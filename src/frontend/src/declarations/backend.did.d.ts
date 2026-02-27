@@ -139,6 +139,10 @@ export interface _SERVICE {
     [bigint],
     Array<{ 'fileName' : string, 'fileType' : string, 'fileId' : bigint }>
   >,
+  'listProductFilesByName' : ActorMethod<
+    [string],
+    Array<{ 'fileName' : string, 'fileType' : string, 'fileId' : bigint }>
+  >,
   'placeOrder' : ActorMethod<
     [Username, string, bigint, string, string, [] | [string], string],
     bigint

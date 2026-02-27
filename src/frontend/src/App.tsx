@@ -213,6 +213,10 @@ export default function App() {
     actor ? actor.listProductFiles(productId) : Promise.resolve([]),
   [actor]);
 
+  const handleListFilesByName = useCallback((productName: string) =>
+    actor ? actor.listProductFilesByName(productName) : Promise.resolve([]),
+  [actor]);
+
   const handleDownloadFile = useCallback((fileId: bigint) =>
     actor ? actor.downloadProductFile(fileId) : Promise.resolve(new Uint8Array()),
   [actor]);
@@ -332,6 +336,7 @@ export default function App() {
               onLoadOrders={handleLoadOrders}
               onUpdateEmail={handleUpdateEmail}
               onListProductFiles={handleListProductFiles}
+              onListFilesByName={handleListFilesByName}
               onDownloadFile={handleDownloadFile}
               products={products}
               membershipStatus={membershipStatus}

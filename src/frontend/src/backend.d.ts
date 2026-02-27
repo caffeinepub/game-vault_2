@@ -130,6 +130,11 @@ export interface backendInterface {
         fileType: string;
         fileId: bigint;
     }>>;
+    listProductFilesByName(productName: string): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>>;
     placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null, deliveryEmail: string): Promise<bigint>;
     purchaseMembership(customerUsername: Username, paymentMethod: string, paymentReference: string): Promise<bigint>;
     registerUser(username: string, email: string): Promise<void>;

@@ -213,6 +213,11 @@ export interface backendInterface {
         fileType: string;
         fileId: bigint;
     }>>;
+    listProductFilesByName(productName: string): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>>;
     placeOrder(customerUsername: Username, itemName: string, price: bigint, paymentMethod: string, paymentReference: string, couponCode: string | null, deliveryEmail: string): Promise<bigint>;
     purchaseMembership(customerUsername: Username, paymentMethod: string, paymentReference: string): Promise<bigint>;
     registerUser(username: string, email: string): Promise<void>;
@@ -687,6 +692,24 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.listProductFilesAdmin(arg0);
+            return result;
+        }
+    }
+    async listProductFilesByName(arg0: string): Promise<Array<{
+        fileName: string;
+        fileType: string;
+        fileId: bigint;
+    }>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listProductFilesByName(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listProductFilesByName(arg0);
             return result;
         }
     }

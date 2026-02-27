@@ -1,13 +1,10 @@
 import Map "mo:core/Map";
-import Nat "mo:core/Nat";
 import List "mo:core/List";
-import Text "mo:core/Text";
 import Set "mo:core/Set";
+import Nat "mo:core/Nat";
 import Principal "mo:core/Principal";
 
 module {
-  type Username = Text;
-
   type UserProfile = {
     username : Text;
     email : Text;
@@ -51,7 +48,7 @@ module {
 
   type Order = {
     orderId : Nat;
-    customerUsername : Username;
+    customerUsername : Text;
     itemName : Text;
     price : Nat;
     paymentMethod : Text;
@@ -84,34 +81,11 @@ module {
 
   type Membership = {
     membershipId : Nat;
-    customerUsername : Username;
+    customerUsername : Text;
     purchasedAt : Int;
     expiresAt : Int;
     paymentMethod : Text;
     paymentReference : Text;
-  };
-
-  // Old state does not have promotionRequests
-  type OldActor = {
-    nextProductId : Nat;
-    nextPackageId : Nat;
-    nextOrderId : Nat;
-    nextFileId : Nat;
-    nextAdId : Nat;
-    nextMembershipId : Nat;
-    registeredUsers : Set.Set<Text>;
-    products : Map.Map<Nat, Product>;
-    packages : Map.Map<Nat, Package>;
-    userOrders : Map.Map<Username, List.List<Order>>;
-    userProfiles : Map.Map<Principal, UserProfile>;
-    ads : Map.Map<Nat, Ad>;
-    memberships : Map.Map<Nat, Membership>;
-    userMemberships : Map.Map<Username, List.List<Nat>>;
-    paymentSettings : ?PaymentSettings;
-    coupons : Map.Map<Text, Coupon>;
-    couponUsages : Map.Map<Text, Set.Set<Text>>;
-    productFiles : Map.Map<Nat, ProductFile>;
-    productFileIndex : Map.Map<Nat, List.List<Nat>>;
   };
 
   type PromotionRequest = {
@@ -125,7 +99,30 @@ module {
     createdAt : Int;
   };
 
-  // New state has promotionRequests
+  type OldActor = {
+    nextProductId : Nat;
+    nextPackageId : Nat;
+    nextOrderId : Nat;
+    nextFileId : Nat;
+    nextAdId : Nat;
+    nextMembershipId : Nat;
+    nextPromotionRequestId : Nat;
+    registeredUsers : Set.Set<Text>;
+    products : Map.Map<Nat, Product>;
+    packages : Map.Map<Nat, Package>;
+    userOrders : Map.Map<Text, List.List<Order>>;
+    paymentSettings : ?PaymentSettings;
+    coupons : Map.Map<Text, Coupon>;
+    couponUsages : Map.Map<Text, Set.Set<Text>>;
+    productFiles : Map.Map<Nat, ProductFile>;
+    productFileIndex : Map.Map<Nat, List.List<Nat>>;
+    userProfiles : Map.Map<Principal, UserProfile>;
+    ads : Map.Map<Nat, Ad>;
+    memberships : Map.Map<Nat, Membership>;
+    userMemberships : Map.Map<Text, List.List<Nat>>;
+    promotionRequests : Map.Map<Nat, PromotionRequest>;
+  };
+
   type NewActor = {
     nextProductId : Nat;
     nextPackageId : Nat;
@@ -137,24 +134,33 @@ module {
     registeredUsers : Set.Set<Text>;
     products : Map.Map<Nat, Product>;
     packages : Map.Map<Nat, Package>;
-    userOrders : Map.Map<Username, List.List<Order>>;
-    userProfiles : Map.Map<Principal, UserProfile>;
-    ads : Map.Map<Nat, Ad>;
-    memberships : Map.Map<Nat, Membership>;
-    userMemberships : Map.Map<Username, List.List<Nat>>;
+    userOrders : Map.Map<Text, List.List<Order>>;
     paymentSettings : ?PaymentSettings;
     coupons : Map.Map<Text, Coupon>;
     couponUsages : Map.Map<Text, Set.Set<Text>>;
     productFiles : Map.Map<Nat, ProductFile>;
     productFileIndex : Map.Map<Nat, List.List<Nat>>;
+    userProfiles : Map.Map<Principal, UserProfile>;
+    ads : Map.Map<Nat, Ad>;
+    memberships : Map.Map<Nat, Membership>;
+    userMemberships : Map.Map<Text, List.List<Nat>>;
     promotionRequests : Map.Map<Nat, PromotionRequest>;
+    productNameIndex : Map.Map<Text, Nat>;
   };
 
   public func run(old : OldActor) : NewActor {
-    // Initialize promotionRequests as empty
-    { old with
-      nextPromotionRequestId = 1;
-      promotionRequests = Map.empty<Nat, PromotionRequest>();
+    let productNameIndex = old.products.foldLeft(
+      Map.empty<Text, Nat>(),
+      func(acc, productId, product) {
+        let lowercaseName = product.name.toLower();
+        acc.add(lowercaseName, productId);
+        acc;
+      },
+    );
+
+    {
+      old with
+      productNameIndex;
     };
   };
 };
