@@ -12,8 +12,10 @@ import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
+import Migration "migration";
 
-(actor {
+(with migration = Migration.run)
+actor {
   type Username = Text;
 
   type UserProfile = {
@@ -99,6 +101,17 @@ import MixinAuthorization "authorization/MixinAuthorization";
     paymentReference : Text;
   };
 
+  type PromotionRequest = {
+    id : Nat;
+    submitterUsername : Text;
+    promotionType : Text;
+    link : Text;
+    description : Text;
+    imageUrl : Text;
+    status : Text;
+    createdAt : Int;
+  };
+
   module Product {
     public func compare(p1 : Product, p2 : Product) : Order.Order {
       Nat.compare(p1.id, p2.id);
@@ -118,6 +131,7 @@ import MixinAuthorization "authorization/MixinAuthorization";
   var nextFileId = 1;
   var nextAdId = 1;
   var nextMembershipId = 1;
+  var nextPromotionRequestId = 1;
   let registeredUsers = Set.empty<Text>();
 
   let products = Map.empty<Nat, Product>();
@@ -142,6 +156,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   // Membership System
   let memberships = Map.empty<Nat, Membership>();
   let userMemberships = Map.empty<Username, List.List<Nat>>();
+
+  // Promotion Requests System
+  let promotionRequests = Map.empty<Nat, PromotionRequest>();
 
   // Authorization
   let accessControlState = AccessControl.initState();
@@ -182,6 +199,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     category : Text,
     imageUrl : Text,
   ) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can create products");
+    };
     let id = nextProductId;
     let product : Product = {
       id;
@@ -206,6 +226,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     imageUrl : Text,
     isAvailable : Bool,
   ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update products");
+    };
     switch (products.get(id)) {
       case (null) { Runtime.trap("Product not found") };
       case (?_) {
@@ -224,6 +247,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public shared ({ caller }) func deleteProduct(id : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete products");
+    };
     switch (products.get(id)) {
       case (null) { Runtime.trap("Product not found") };
       case (?_) {
@@ -247,6 +273,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     price : Nat,
     features : [Text],
   ) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can create packages");
+    };
     let id = nextPackageId;
     let package : Package = {
       id;
@@ -269,6 +298,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     features : [Text],
     isActive : Bool,
   ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update packages");
+    };
     switch (packages.get(id)) {
       case (null) { Runtime.trap("Package not found") };
       case (?_) {
@@ -286,6 +318,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public shared ({ caller }) func deletePackage(id : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete packages");
+    };
     switch (packages.get(id)) {
       case (null) { Runtime.trap("Package not found") };
       case (?_) {
@@ -312,6 +347,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     couponCode : ?Text,
     deliveryEmail : Text,
   ) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can place orders");
+    };
     if (not registeredUsers.contains(customerUsername)) {
       Runtime.trap("User not registered");
     };
@@ -412,6 +450,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public shared ({ caller }) func updateOrderStatus(customerUsername : Username, orderId : Nat, status : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update order status");
+    };
     let orders = switch (userOrders.get(customerUsername)) {
       case (null) { Runtime.trap("Order does not exist") };
       case (?orders) { orders };
@@ -442,12 +483,25 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public query ({ caller }) func listAllOrders() : async [(Username, [Order])] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can list all orders");
+    };
     userOrders.entries().map<(Username, List.List<Order>), (Username, [Order])>(
       func(entry) { (entry.0, entry.1.toArray()) }
     ).toArray<(Username, [Order])>();
   };
 
   public query ({ caller }) func getCustomerOrders(customerUsername : Username) : async [Order] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view orders");
+    };
+    let profile = switch (userProfiles.get(caller)) {
+      case (null) { Runtime.trap("User profile not found") };
+      case (?p) { p };
+    };
+    if (profile.username != customerUsername and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own orders");
+    };
     switch (userOrders.get(customerUsername)) {
       case (null) { [] };
       case (?orders) { orders.toArray() };
@@ -456,6 +510,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
 
   // Payment Settings
   public shared ({ caller }) func savePaymentSettings(settings : PaymentSettings) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can save payment settings");
+    };
     paymentSettings := ?settings;
   };
 
@@ -471,6 +528,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     maxUses : Nat,
     isActive : Bool,
   ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can create coupons");
+    };
     if (coupons.containsKey(code)) {
       Runtime.trap("Coupon code already exists");
     };
@@ -498,6 +558,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     maxUses : Nat,
     isActive : Bool,
   ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update coupons");
+    };
     let existing = switch (coupons.get(code)) {
       case (null) { Runtime.trap("Coupon not found") };
       case (?c) { c };
@@ -520,6 +583,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public shared ({ caller }) func deleteCoupon(code : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete coupons");
+    };
     if (not coupons.containsKey(code)) {
       Runtime.trap("Coupon not found");
     };
@@ -529,6 +595,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public query ({ caller }) func listAllCoupons() : async [Coupon] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can list all coupons");
+    };
     coupons.values().toArray();
   };
 
@@ -536,6 +605,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     coupon : Coupon;
     soloUse : Bool;
   } {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can validate coupons");
+    };
     let coupon = switch (coupons.get(code)) {
       case (null) { Runtime.trap("Coupon not found") };
       case (?coupon) {
@@ -556,8 +628,11 @@ import MixinAuthorization "authorization/MixinAuthorization";
     { coupon; soloUse = true };
   };
 
-  // Product File Attachments - NO permission checks, anyone can manage attachments
+  // Product File Attachments
   public shared ({ caller }) func attachFileToProduct(productId : Nat, fileName : Text, fileType : Text, fileData : Blob) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can attach files to products");
+    };
     // Validate fileType
     if (fileType != "lua" and fileType != "apk") {
       Runtime.trap("Invalid file type. Must be 'lua' or 'apk'");
@@ -593,6 +668,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public shared ({ caller }) func removeFileFromProduct(productId : Nat, fileId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can remove files from products");
+    };
     // Validate file exists
     switch (productFiles.get(fileId)) {
       case (null) { Runtime.trap("File not found") };
@@ -613,6 +691,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public query ({ caller }) func listProductFilesAdmin(productId : Nat) : async [{ fileId : Nat; fileName : Text; fileType : Text }] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can list product files");
+    };
     switch (productFileIndex.get(productId)) {
       case (null) { return [] };
       case (?fileIds) {
@@ -677,6 +758,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public shared ({ caller }) func downloadProductFile(fileId : Nat) : async Blob {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can download files");
+    };
     let file = switch (productFiles.get(fileId)) {
       case (null) { Runtime.trap("File not found") };
       case (?f) { f };
@@ -706,7 +790,7 @@ import MixinAuthorization "authorization/MixinAuthorization";
     file.fileData;
   };
 
-  // Ads System - Public for viewing active ads
+  // Ads System
   public shared ({ caller }) func createAd(
     adType : Text,
     title : Text,
@@ -714,6 +798,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     imageUrl : Text,
     linkUrl : Text,
   ) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can create ads");
+    };
     if (adType != "image" and adType != "text") {
       Runtime.trap("Invalid ad type. Must be 'image' or 'text'");
     };
@@ -744,6 +831,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     linkUrl : Text,
     isActive : Bool,
   ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update ads");
+    };
     if (adType != "image" and adType != "text") {
       Runtime.trap("Invalid ad type. Must be 'image' or 'text'");
     };
@@ -768,6 +858,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public shared ({ caller }) func deleteAd(id : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete ads");
+    };
     switch (ads.get(id)) {
       case (null) { Runtime.trap("Ad not found") };
       case (?_) {
@@ -777,6 +870,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public query ({ caller }) func listAllAds() : async [Ad] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can list all ads");
+    };
     ads.values().toArray();
   };
 
@@ -790,6 +886,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
     paymentMethod : Text,
     paymentReference : Text,
   ) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can purchase memberships");
+    };
     let membershipDuration : Int = 30 * 24 * 60 * 60 * 1_000_000_000; // 30 days in nanoseconds
     let now = Time.now();
 
@@ -851,6 +950,16 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public query ({ caller }) func getMembershipStatus(customerUsername : Username) : async ?Membership {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view membership status");
+    };
+    let profile = switch (userProfiles.get(caller)) {
+      case (null) { Runtime.trap("User profile not found") };
+      case (?p) { p };
+    };
+    if (profile.username != customerUsername and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own membership");
+    };
     switch (userMemberships.get(customerUsername)) {
       case (null) { null };
       case (?membershipIds) {
@@ -889,6 +998,55 @@ import MixinAuthorization "authorization/MixinAuthorization";
   };
 
   public query ({ caller }) func listAllMemberships() : async [Membership] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can list all memberships");
+    };
     memberships.values().toArray();
   };
-});
+
+  // Promotion Requests - NEW Feature with proper authorization
+  public shared ({ caller }) func submitPromotionRequest(submitterUsername : Text, promotionType : Text, link : Text, description : Text, imageUrl : Text) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can submit promotion requests");
+    };
+    let id = nextPromotionRequestId;
+    let promotionRequest : PromotionRequest = {
+      id;
+      submitterUsername;
+      promotionType;
+      link;
+      description;
+      imageUrl;
+      status = "pending";
+      createdAt = Time.now();
+    };
+
+    promotionRequests.add(id, promotionRequest);
+
+    nextPromotionRequestId += 1;
+    id;
+  };
+
+  public query ({ caller }) func listAllPromotionRequests() : async [PromotionRequest] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can list all promotion requests");
+    };
+    promotionRequests.values().toArray();
+  };
+
+  public shared ({ caller }) func updatePromotionRequestStatus(id : Nat, status : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update promotion request status");
+    };
+    switch (promotionRequests.get(id)) {
+      case (null) { Runtime.trap("Promotion request not found") };
+      case (?promotion) {
+        let updatedPromotion = {
+          promotion with
+          status;
+        };
+        promotionRequests.add(id, updatedPromotion);
+      };
+    };
+  };
+};

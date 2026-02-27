@@ -13,10 +13,11 @@ import {
   Loader2, Shield, ShieldCheck, Package, ShoppingBag,
   CreditCard, Plus, Trash2, Edit, Check, X, ChevronRight,
   ArrowLeft, Save, Tag, ToggleLeft, ToggleRight, Mail, Paperclip, Upload, FileCode, FileArchive,
-  Megaphone, Users, Image, AlignLeft, ExternalLink, Globe
+  Megaphone, Users, Image, AlignLeft, ExternalLink, Globe, Youtube, Building2, Copy, ClipboardCheck,
+  TrendingUp
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Product, Package as BackendPackage, Order, PaymentSettings, Coupon, Ad, Membership } from "@/backend.d";
+import type { Product, Package as BackendPackage, Order, PaymentSettings, Coupon, Ad, Membership, PromotionRequest } from "@/backend.d";
 
 interface ProductFileInfo {
   fileName: string;
@@ -27,6 +28,7 @@ interface ProductFileInfo {
 interface AdminPageProps {
   onNavigate: (page: string) => void;
   onAdsChanged?: () => void;
+  onSwitchToAdsTab?: () => void;
   backend: {
     isCallerAdmin: () => Promise<boolean>;
     listAvailableProducts: () => Promise<Product[]>;
@@ -55,10 +57,13 @@ interface AdminPageProps {
     deleteAd: (id: bigint) => Promise<void>;
     // Memberships
     listAllMemberships: () => Promise<Membership[]>;
+    // Promotions
+    listAllPromotionRequests: () => Promise<PromotionRequest[]>;
+    updatePromotionRequestStatus: (id: bigint, status: string) => Promise<void>;
   };
 }
 
-type AdminTab = "orders" | "products" | "subscriptions" | "payments" | "coupons" | "ads" | "memberships";
+type AdminTab = "orders" | "products" | "subscriptions" | "payments" | "coupons" | "ads" | "memberships" | "promotions";
 type PinState = "idle" | "entered" | "verified" | "denied";
 
 const CORRECT_PIN = "2006";
@@ -1486,7 +1491,12 @@ interface AdFormData {
   isActive: boolean;
 }
 
-function AdsTab({ backend, onAdsChanged }: { backend: AdminPageProps["backend"]; onAdsChanged?: () => void }) {
+function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
+  backend: AdminPageProps["backend"];
+  onAdsChanged?: () => void;
+  preFillData?: PreFillAdData | null;
+  onPreFillConsumed?: () => void;
+}) {
   const [ads, setAds] = useState<Ad[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1497,6 +1507,23 @@ function AdsTab({ backend, onAdsChanged }: { backend: AdminPageProps["backend"];
   const [form, setForm] = useState<AdFormData>({
     adType: "text", title: "", description: "", imageUrl: "", linkUrl: "", isActive: true,
   });
+
+  // Consume pre-fill data when provided (e.g. from promotion request)
+  useEffect(() => {
+    if (preFillData) {
+      setForm({
+        adType: preFillData.adType,
+        title: preFillData.title,
+        description: preFillData.description,
+        imageUrl: preFillData.imageUrl,
+        linkUrl: preFillData.linkUrl,
+        isActive: true,
+      });
+      setEditingAd(null);
+      setShowForm(true);
+      onPreFillConsumed?.();
+    }
+  }, [preFillData, onPreFillConsumed]);
 
   const loadAds = useCallback(async () => {
     setIsLoading(true);
@@ -1864,6 +1891,213 @@ function MembershipsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   );
 }
 
+// ---- Promotion Requests Tab ----
+interface PreFillAdData {
+  adType: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
+}
+
+function PromotionRequestsTab({
+  backend,
+  onPreFillAd,
+}: {
+  backend: AdminPageProps["backend"];
+  onPreFillAd: (data: PreFillAdData) => void;
+}) {
+  const [requests, setRequests] = useState<PromotionRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<bigint | null>(null);
+  const [copiedId, setCopiedId] = useState<bigint | null>(null);
+
+  const loadRequests = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await backend.listAllPromotionRequests();
+      setRequests(data.sort((a, b) => Number(b.createdAt - a.createdAt)));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load promotion requests");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [backend]);
+
+  useEffect(() => { void loadRequests(); }, [loadRequests]);
+
+  const handleUpdateStatus = async (id: bigint, status: string) => {
+    setUpdatingId(id);
+    try {
+      await backend.updatePromotionRequestStatus(id, status);
+      toast.success(`Request ${status}`);
+      void loadRequests();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update request status");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleCreateAdFromPromotion = async (req: PromotionRequest) => {
+    // Copy details to clipboard
+    const text = `Type: ${req.promotionType}\nLink: ${req.link}\nDescription: ${req.description}${req.imageUrl ? `\nImage: ${req.imageUrl}` : ""}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // ignore clipboard errors
+    }
+    setCopiedId(req.id);
+    setTimeout(() => setCopiedId(null), 2000);
+
+    // Pre-fill the ads form
+    const adData: PreFillAdData = {
+      adType: req.imageUrl ? "image" : "text",
+      title: req.link,
+      description: req.description,
+      imageUrl: req.imageUrl,
+      linkUrl: req.link,
+    };
+    onPreFillAd(adData);
+    toast.success("Ad form pre-filled! Go to Ads section to publish.");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {(["a", "b", "c"] as const).map((sk) => (
+          <Skeleton key={sk} className="h-24 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="glass-card p-10 text-center">
+        <TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-30" />
+        <p className="font-body text-foreground/50">No promotion requests yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {requests.map((req) => {
+        const isPending = req.status.toLowerCase() === "pending";
+        const isYoutube = req.promotionType.toLowerCase() === "youtube";
+        return (
+          <div key={req.id.toString()} className="glass-card p-4">
+            <div className="flex flex-col gap-3">
+              {/* Header row */}
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Type badge */}
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-body text-xs font-semibold"
+                    style={isYoutube
+                      ? { background: "oklch(0.65 0.25 25 / 0.15)", color: "oklch(0.75 0.22 25)", border: "1px solid oklch(0.65 0.25 25 / 0.4)" }
+                      : { background: "oklch(0.55 0.2 240 / 0.15)", color: "oklch(0.7 0.18 240)", border: "1px solid oklch(0.55 0.2 240 / 0.4)" }
+                    }
+                  >
+                    {isYoutube
+                      ? <Youtube className="w-3 h-3" />
+                      : <Building2 className="w-3 h-3" />
+                    }
+                    {isYoutube ? "YouTube" : "Business"}
+                  </span>
+                  {/* Status badge */}
+                  <StatusBadge status={req.status} />
+                  {/* Submitter */}
+                  <span className="font-body text-xs text-foreground/50">👤 {req.submitterUsername}</span>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  {isPending && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleUpdateStatus(req.id, "accepted")}
+                        disabled={updatingId === req.id}
+                        className="font-body font-semibold text-white text-xs"
+                        style={{ background: "oklch(0.55 0.2 145)", boxShadow: "none" }}
+                      >
+                        {updatingId === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        <span className="ml-1">Accept</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleUpdateStatus(req.id, "declined")}
+                        disabled={updatingId === req.id}
+                        className="font-body font-semibold text-white text-xs"
+                        style={{ background: "oklch(0.65 0.25 25)", boxShadow: "none" }}
+                      >
+                        {updatingId === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                        <span className="ml-1">Decline</span>
+                      </Button>
+                    </>
+                  )}
+                  {/* Create Ad from Promotion */}
+                  <Button
+                    size="sm"
+                    onClick={() => void handleCreateAdFromPromotion(req)}
+                    className="font-body font-semibold text-white text-xs"
+                    style={{
+                      background: copiedId === req.id
+                        ? "oklch(0.55 0.2 145 / 0.8)"
+                        : "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.8), oklch(0.55 0.2 285 / 0.8))",
+                      boxShadow: "none",
+                    }}
+                  >
+                    {copiedId === req.id
+                      ? <><ClipboardCheck className="w-3.5 h-3.5" /><span className="ml-1">Copied!</span></>
+                      : <><Copy className="w-3.5 h-3.5" /><span className="ml-1">Create Ad</span></>
+                    }
+                  </Button>
+                </div>
+              </div>
+
+              {/* Link */}
+              <div className="flex items-center gap-2">
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.62 0.27 355 / 0.6)" }} />
+                <a
+                  href={req.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-body text-xs hover:underline truncate max-w-sm"
+                  style={{ color: "oklch(0.7 0.18 240)" }}
+                >
+                  {req.link}
+                </a>
+              </div>
+
+              {/* Description */}
+              <p className="text-foreground/60 font-body text-sm leading-relaxed">{req.description}</p>
+
+              {/* Image (if any) */}
+              {req.imageUrl && (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={req.imageUrl}
+                    alt="Promotion"
+                    className="w-16 h-16 rounded-lg object-cover shrink-0"
+                    style={{ border: "1px solid oklch(0.3 0.08 285)" }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                  <span className="font-body text-xs text-foreground/40 truncate">{req.imageUrl}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ---- Helper ----
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -1877,9 +2111,16 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 // ---- Main AdminPage ----
 export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps) {
   const [isAuthed, setIsAuthed] = useState(false);
+  const [activeTab, setActiveTab] = useState<AdminTab>("orders");
+  const [adPreFillData, setAdPreFillData] = useState<PreFillAdData | null>(null);
 
   const handlePinSuccess = () => {
     setIsAuthed(true);
+  };
+
+  const handlePreFillAd = (data: PreFillAdData) => {
+    setAdPreFillData(data);
+    setActiveTab("ads");
   };
 
   if (!isAuthed) {
@@ -1894,6 +2135,7 @@ export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps)
     { id: "coupons", label: "Coupons", icon: <Tag className="w-4 h-4" /> },
     { id: "ads", label: "Ads", icon: <Megaphone className="w-4 h-4" /> },
     { id: "memberships", label: "Members", icon: <Users className="w-4 h-4" /> },
+    { id: "promotions", label: "Promos", icon: <TrendingUp className="w-4 h-4" /> },
   ];
 
   return (
@@ -1929,7 +2171,7 @@ export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps)
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="orders" style={{ animation: "fade-in-up 0.4s 0.1s ease-out both" }}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AdminTab)} style={{ animation: "fade-in-up 0.4s 0.1s ease-out both" }}>
           <TabsList
             className="w-full mb-6 h-auto flex-wrap gap-1 p-1 font-body"
             style={{ background: "oklch(0.12 0.04 285)" }}
@@ -1964,10 +2206,18 @@ export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps)
               <CouponsTab backend={backend} />
             </TabsContent>
             <TabsContent value="ads">
-              <AdsTab backend={backend} onAdsChanged={onAdsChanged} />
+              <AdsTab
+                backend={backend}
+                onAdsChanged={onAdsChanged}
+                preFillData={adPreFillData}
+                onPreFillConsumed={() => setAdPreFillData(null)}
+              />
             </TabsContent>
             <TabsContent value="memberships">
               <MembershipsTab backend={backend} />
+            </TabsContent>
+            <TabsContent value="promotions">
+              <PromotionRequestsTab backend={backend} onPreFillAd={handlePreFillAd} />
             </TabsContent>
           </div>
         </Tabs>

@@ -192,7 +192,22 @@ export default function App() {
     deleteAd: (id: bigint) => actor ? actor.deleteAd(id) : Promise.resolve(),
     // Memberships
     listAllMemberships: () => actor ? actor.listAllMemberships() : Promise.resolve([]),
+    // Promotions
+    listAllPromotionRequests: () => actor ? actor.listAllPromotionRequests() : Promise.resolve([]),
+    updatePromotionRequestStatus: (id: bigint, status: string) =>
+      actor ? actor.updatePromotionRequestStatus(id, status) : Promise.resolve(),
   }), [actor]);
+
+  const handleSubmitPromotion = useCallback(async (
+    submitterUsername: string,
+    promotionType: string,
+    link: string,
+    description: string,
+    imageUrl: string
+  ): Promise<bigint> => {
+    if (!actor) throw new Error("Not connected");
+    return actor.submitPromotionRequest(submitterUsername, promotionType, link, description, imageUrl);
+  }, [actor]);
 
   const handleListProductFiles = useCallback((productId: bigint) =>
     actor ? actor.listProductFiles(productId) : Promise.resolve([]),
@@ -273,6 +288,7 @@ export default function App() {
               membershipStatus={membershipStatus}
               paymentSettings={paymentSettings}
               onPurchaseMembership={handlePurchaseMembership}
+              onSubmitPromotion={handleSubmitPromotion}
             />
           )}
 

@@ -89,6 +89,24 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface PromotionRequest {
+    id: bigint;
+    status: string;
+    link: string;
+    createdAt: bigint;
+    submitterUsername: string;
+    description: string;
+    imageUrl: string;
+    promotionType: string;
+}
+export interface PaymentSettings {
+    bitcoinWallet: string;
+    ethereumWallet: string;
+    xboxInstructions: string;
+    etsyInstructions: string;
+    amazonInstructions: string;
+    paypalEmail: string;
+}
 export interface Ad {
     id: bigint;
     title: string;
@@ -98,14 +116,6 @@ export interface Ad {
     isActive: boolean;
     imageUrl: string;
     adType: string;
-}
-export interface PaymentSettings {
-    bitcoinWallet: string;
-    ethereumWallet: string;
-    xboxInstructions: string;
-    etsyInstructions: string;
-    amazonInstructions: string;
-    paypalEmail: string;
 }
 export interface Coupon {
     discountValue: bigint;
@@ -144,10 +154,6 @@ export interface Order {
     paymentReference: string;
     price: bigint;
 }
-export interface UserProfile {
-    username: string;
-    email: string;
-}
 export interface Product {
     id: bigint;
     name: string;
@@ -156,6 +162,10 @@ export interface Product {
     imageUrl: string;
     category: string;
     price: bigint;
+}
+export interface UserProfile {
+    username: string;
+    email: string;
 }
 export enum UserRole {
     admin = "admin",
@@ -191,6 +201,7 @@ export interface backendInterface {
     listAllCoupons(): Promise<Array<Coupon>>;
     listAllMemberships(): Promise<Array<Membership>>;
     listAllOrders(): Promise<Array<[Username, Array<Order>]>>;
+    listAllPromotionRequests(): Promise<Array<PromotionRequest>>;
     listAvailableProducts(): Promise<Array<Product>>;
     listProductFiles(productId: bigint): Promise<Array<{
         fileName: string;
@@ -208,11 +219,13 @@ export interface backendInterface {
     removeFileFromProduct(productId: bigint, fileId: bigint): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     savePaymentSettings(settings: PaymentSettings): Promise<void>;
+    submitPromotionRequest(submitterUsername: string, promotionType: string, link: string, description: string, imageUrl: string): Promise<bigint>;
     updateAd(id: bigint, adType: string, title: string, description: string, imageUrl: string, linkUrl: string, isActive: boolean): Promise<void>;
     updateCoupon(code: string, discountType: string, discountValue: bigint, maxUses: bigint, isActive: boolean): Promise<void>;
     updateOrderStatus(customerUsername: Username, orderId: bigint, status: string): Promise<void>;
     updatePackage(id: bigint, name: string, description: string, price: bigint, features: Array<string>, isActive: boolean): Promise<void>;
     updateProduct(id: bigint, name: string, description: string, price: bigint, category: string, imageUrl: string, isAvailable: boolean): Promise<void>;
+    updatePromotionRequestStatus(id: bigint, status: string): Promise<void>;
     validateCoupon(code: string, customerUsername: Username): Promise<{
         soloUse: boolean;
         coupon: Coupon;
@@ -613,6 +626,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n14(this._uploadFile, this._downloadFile, result);
         }
     }
+    async listAllPromotionRequests(): Promise<Array<PromotionRequest>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listAllPromotionRequests();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listAllPromotionRequests();
+            return result;
+        }
+    }
     async listAvailableProducts(): Promise<Array<Product>> {
         if (this.processError) {
             try {
@@ -747,6 +774,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async submitPromotionRequest(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.submitPromotionRequest(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.submitPromotionRequest(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
     async updateAd(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: boolean): Promise<void> {
         if (this.processError) {
             try {
@@ -814,6 +855,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateProduct(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return result;
+        }
+    }
+    async updatePromotionRequestStatus(arg0: bigint, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updatePromotionRequestStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updatePromotionRequestStatus(arg0, arg1);
             return result;
         }
     }

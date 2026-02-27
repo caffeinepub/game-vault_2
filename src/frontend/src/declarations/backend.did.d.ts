@@ -73,6 +73,16 @@ export interface Product {
   'category' : string,
   'price' : bigint,
 }
+export interface PromotionRequest {
+  'id' : bigint,
+  'status' : string,
+  'link' : string,
+  'createdAt' : bigint,
+  'submitterUsername' : string,
+  'description' : string,
+  'imageUrl' : string,
+  'promotionType' : string,
+}
 export interface UserProfile { 'username' : string, 'email' : string }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
@@ -119,6 +129,7 @@ export interface _SERVICE {
   'listAllCoupons' : ActorMethod<[], Array<Coupon>>,
   'listAllMemberships' : ActorMethod<[], Array<Membership>>,
   'listAllOrders' : ActorMethod<[], Array<[Username, Array<Order>]>>,
+  'listAllPromotionRequests' : ActorMethod<[], Array<PromotionRequest>>,
   'listAvailableProducts' : ActorMethod<[], Array<Product>>,
   'listProductFiles' : ActorMethod<
     [bigint],
@@ -137,6 +148,10 @@ export interface _SERVICE {
   'removeFileFromProduct' : ActorMethod<[bigint, bigint], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'savePaymentSettings' : ActorMethod<[PaymentSettings], undefined>,
+  'submitPromotionRequest' : ActorMethod<
+    [string, string, string, string, string],
+    bigint
+  >,
   'updateAd' : ActorMethod<
     [bigint, string, string, string, string, string, boolean],
     undefined
@@ -154,6 +169,7 @@ export interface _SERVICE {
     [bigint, string, string, bigint, string, string, boolean],
     undefined
   >,
+  'updatePromotionRequestStatus' : ActorMethod<[bigint, string], undefined>,
   'validateCoupon' : ActorMethod<
     [string, Username],
     { 'soloUse' : boolean, 'coupon' : Coupon }

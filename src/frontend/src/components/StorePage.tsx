@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ShoppingBag, Gamepad2, Download, Star, ChevronRight, Zap, Car, Code, Search, X, Crown, ExternalLink, CheckCircle2, Loader2, Copy, ClipboardCheck } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ShoppingBag, Gamepad2, Download, Star, ChevronRight, Zap, Car, Code, Search, X, Crown, ExternalLink, CheckCircle2, Loader2, Copy, ClipboardCheck, Megaphone, Youtube, Building2, Link2, FileText, Image, ArrowLeft, CheckCircle } from "lucide-react";
 import { SiPaypal, SiBitcoin, SiEthereum } from "react-icons/si";
 import { toast } from "sonner";
 import type { Page, CheckoutItem } from "@/types";
@@ -22,6 +23,7 @@ interface StorePageProps {
   membershipStatus?: Membership | null;
   paymentSettings?: PaymentSettings | null;
   onPurchaseMembership?: (paymentMethod: string, paymentRef: string) => Promise<bigint>;
+  onSubmitPromotion?: (submitterUsername: string, promotionType: string, link: string, description: string, imageUrl: string) => Promise<bigint>;
 }
 
 function formatPrice(pricePence: bigint): string {
@@ -58,10 +60,12 @@ export function StorePage({
   membershipStatus = null,
   paymentSettings = null,
   onPurchaseMembership,
+  onSubmitPromotion,
 }: StorePageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [dismissedAds, setDismissedAds] = useState<Set<string>>(new Set());
   const [showMembershipCheckout, setShowMembershipCheckout] = useState(false);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -137,7 +141,55 @@ export function StorePage({
         </div>
       </section>
 
+      {/* Promote modal */}
+      <PromoteModal
+        open={showPromoteModal}
+        onClose={() => setShowPromoteModal(false)}
+        userProfile={userProfile}
+        onSubmit={onSubmitPromotion}
+      />
+
       <div className="container mx-auto px-4 py-12">
+        {/* Promote Your Business button */}
+        <div className="flex justify-center mb-6" style={{ animation: "fade-in-up 0.5s 0.1s ease-out both" }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (!userProfile) {
+                toast.error("Please login to submit a promotion request");
+                return;
+              }
+              setShowPromoteModal(true);
+            }}
+            className="relative group flex items-center gap-2.5 px-6 py-3 rounded-xl font-body font-bold text-sm overflow-hidden transition-all duration-300"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.15), oklch(0.55 0.2 285 / 0.15))",
+              border: "1px solid oklch(0.62 0.27 355 / 0.35)",
+              color: "oklch(0.82 0.15 355)",
+              boxShadow: "0 0 20px oklch(0.62 0.27 355 / 0.1)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.25), oklch(0.55 0.2 285 / 0.2))";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 30px oklch(0.62 0.27 355 / 0.25), 0 0 60px oklch(0.7 0.22 45 / 0.1)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.62 0.27 355 / 0.6)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.15), oklch(0.55 0.2 285 / 0.15))";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px oklch(0.62 0.27 355 / 0.1)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.62 0.27 355 / 0.35)";
+            }}
+          >
+            <Megaphone className="w-4 h-4 shrink-0" style={{ color: "oklch(0.7 0.22 45)" }} />
+            <span>Promote Your Business / Channel</span>
+            <span
+              className="px-1.5 py-0.5 rounded-md font-body text-xs font-semibold"
+              style={{ background: "oklch(0.7 0.22 45 / 0.2)", color: "oklch(0.82 0.18 80)", border: "1px solid oklch(0.7 0.22 45 / 0.35)" }}
+            >
+              FREE
+            </span>
+          </button>
+        </div>
+
         {/* Search bar */}
         <div className="flex justify-center mb-10">
           <div
@@ -1105,6 +1157,284 @@ function MembershipCheckout({
         }
       </Button>
     </div>
+  );
+}
+
+// ---- Promote Modal ----
+type PromotionType = "youtube" | "business" | null;
+
+interface PromoteModalProps {
+  open: boolean;
+  onClose: () => void;
+  userProfile: { username: string; email: string } | null;
+  onSubmit?: (submitterUsername: string, promotionType: string, link: string, description: string, imageUrl: string) => Promise<bigint>;
+}
+
+function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProps) {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [promotionType, setPromotionType] = useState<PromotionType>(null);
+  const [link, setLink] = useState("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleClose = () => {
+    setStep(1);
+    setPromotionType(null);
+    setLink("");
+    setDescription("");
+    setImageUrl("");
+    setSubmitted(false);
+    onClose();
+  };
+
+  const handleSelectType = (type: PromotionType) => {
+    setPromotionType(type);
+    setStep(2);
+  };
+
+  const handleSubmit = async () => {
+    if (!link.trim()) { toast.error("Link is required"); return; }
+    if (!description.trim()) { toast.error("Description is required"); return; }
+    if (!userProfile) { toast.error("Please login first"); return; }
+    if (!onSubmit) { toast.error("Submission not available"); return; }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(userProfile.username, promotionType ?? "business", link.trim(), description.trim(), imageUrl.trim());
+      setSubmitted(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to submit promotion request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+      <DialogContent
+        className="font-body max-w-md"
+        style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.62 0.27 355 / 0.35)" }}
+      >
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl text-white flex items-center gap-2">
+            <Megaphone className="w-5 h-5" style={{ color: "oklch(0.7 0.22 45)" }} />
+            Promote Your Business / Channel
+          </DialogTitle>
+        </DialogHeader>
+
+        {submitted ? (
+          <div className="py-8 text-center space-y-3" style={{ animation: "scale-in 0.3s ease-out both" }}>
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
+              style={{ background: "oklch(0.55 0.2 145 / 0.15)", border: "2px solid oklch(0.55 0.2 145 / 0.5)" }}
+            >
+              <CheckCircle className="w-8 h-8" style={{ color: "oklch(0.65 0.2 145)" }} />
+            </div>
+            <p className="font-body font-bold text-foreground text-base">Request Submitted!</p>
+            <p className="text-foreground/60 font-body text-sm px-4">
+              Your promotion request has been submitted! We'll review it shortly.
+            </p>
+            <Button
+              className="mt-2 font-body font-semibold"
+              style={{ background: "oklch(0.55 0.2 145)", color: "white" }}
+              onClick={handleClose}
+            >
+              Done
+            </Button>
+          </div>
+        ) : step === 1 ? (
+          <div className="py-4 space-y-3">
+            <p className="text-foreground/60 font-body text-sm">
+              What would you like to promote?
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {/* YouTube Channel */}
+              <button
+                type="button"
+                onClick={() => handleSelectType("youtube")}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl text-center transition-all duration-200"
+                style={{
+                  background: "oklch(0.65 0.25 25 / 0.1)",
+                  border: "1px solid oklch(0.65 0.25 25 / 0.3)",
+                  color: "oklch(0.8 0.18 25)",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.65 0.25 25 / 0.2)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.65 0.25 25 / 0.6)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px oklch(0.65 0.25 25 / 0.2)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.65 0.25 25 / 0.1)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.65 0.25 25 / 0.3)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                }}
+              >
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ background: "oklch(0.65 0.25 25 / 0.2)" }}
+                >
+                  <Youtube className="w-6 h-6" style={{ color: "oklch(0.7 0.25 25)" }} />
+                </div>
+                <div>
+                  <p className="font-body font-bold text-sm">YouTube Channel</p>
+                  <p className="font-body text-xs text-foreground/50 mt-0.5">Share your channel</p>
+                </div>
+              </button>
+
+              {/* Business */}
+              <button
+                type="button"
+                onClick={() => handleSelectType("business")}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl text-center transition-all duration-200"
+                style={{
+                  background: "oklch(0.55 0.2 240 / 0.1)",
+                  border: "1px solid oklch(0.55 0.2 240 / 0.3)",
+                  color: "oklch(0.75 0.18 240)",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.55 0.2 240 / 0.2)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.55 0.2 240 / 0.6)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px oklch(0.55 0.2 240 / 0.2)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.55 0.2 240 / 0.1)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.55 0.2 240 / 0.3)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                }}
+              >
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ background: "oklch(0.55 0.2 240 / 0.2)" }}
+                >
+                  <Building2 className="w-6 h-6" style={{ color: "oklch(0.65 0.2 240)" }} />
+                </div>
+                <div>
+                  <p className="font-body font-bold text-sm">Business</p>
+                  <p className="font-body text-xs text-foreground/50 mt-0.5">Promote your brand</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="py-2 space-y-4">
+            {/* Back button */}
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="flex items-center gap-1.5 text-foreground/50 hover:text-foreground/80 font-body text-xs transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back
+            </button>
+
+            {/* Type indicator */}
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-lg"
+              style={{
+                background: promotionType === "youtube" ? "oklch(0.65 0.25 25 / 0.1)" : "oklch(0.55 0.2 240 / 0.1)",
+                border: `1px solid ${promotionType === "youtube" ? "oklch(0.65 0.25 25 / 0.3)" : "oklch(0.55 0.2 240 / 0.3)"}`,
+              }}
+            >
+              {promotionType === "youtube"
+                ? <Youtube className="w-4 h-4 shrink-0" style={{ color: "oklch(0.7 0.25 25)" }} />
+                : <Building2 className="w-4 h-4 shrink-0" style={{ color: "oklch(0.65 0.2 240)" }} />
+              }
+              <span className="font-body font-semibold text-sm text-foreground/80">
+                {promotionType === "youtube" ? "YouTube Channel Promotion" : "Business Promotion"}
+              </span>
+            </div>
+
+            {/* Link */}
+            <div className="space-y-1.5">
+              <label htmlFor="promo-link" className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5" />
+                {promotionType === "youtube" ? "YouTube Channel URL" : "Business Website URL"}
+                <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
+              </label>
+              <input
+                id="promo-link"
+                type="url"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                placeholder={promotionType === "youtube" ? "https://youtube.com/@yourchannel" : "https://yourbusiness.com"}
+                className="w-full px-3 py-2.5 rounded-lg font-body text-sm text-foreground placeholder:text-foreground/30 outline-none transition-all"
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  border: "1px solid oklch(0.3 0.08 285)",
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.62 0.27 355 / 0.6)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)"; }}
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <label htmlFor="promo-description" className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" />
+                Describe what you want promoted
+                <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
+              </label>
+              <textarea
+                id="promo-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell us about your channel or business and what you'd like to promote..."
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-lg font-body text-sm text-foreground placeholder:text-foreground/30 outline-none transition-all resize-none"
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  border: "1px solid oklch(0.3 0.08 285)",
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.62 0.27 355 / 0.6)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)"; }}
+              />
+            </div>
+
+            {/* Image URL (optional) */}
+            <div className="space-y-1.5">
+              <label htmlFor="promo-image" className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5">
+                <Image className="w-3.5 h-3.5" />
+                Image URL (optional)
+              </label>
+              <input
+                id="promo-image"
+                type="url"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://example.com/logo.png"
+                className="w-full px-3 py-2.5 rounded-lg font-body text-sm text-foreground placeholder:text-foreground/30 outline-none transition-all"
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  border: "1px solid oklch(0.3 0.08 285)",
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.62 0.27 355 / 0.6)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)"; }}
+              />
+            </div>
+
+            {/* Submit */}
+            <Button
+              className="w-full font-body font-bold text-sm"
+              style={{
+                background: "linear-gradient(135deg, oklch(0.62 0.27 355), oklch(0.55 0.2 295))",
+                color: "white",
+                boxShadow: "0 0 20px oklch(0.62 0.27 355 / 0.3)",
+              }}
+              onClick={() => void handleSubmit()}
+              disabled={isSubmitting || !link.trim() || !description.trim()}
+            >
+              {isSubmitting
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
+                : <><Megaphone className="w-4 h-4 mr-2" />Submit Promotion Request</>
+              }
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

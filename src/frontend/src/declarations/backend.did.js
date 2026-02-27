@@ -81,6 +81,16 @@ export const Coupon = IDL.Record({
   'isActive' : IDL.Bool,
   'maxUses' : IDL.Nat,
 });
+export const PromotionRequest = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : IDL.Text,
+  'link' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'submitterUsername' : IDL.Text,
+  'description' : IDL.Text,
+  'imageUrl' : IDL.Text,
+  'promotionType' : IDL.Text,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -143,6 +153,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(IDL.Tuple(Username, IDL.Vec(Order)))],
       ['query'],
     ),
+  'listAllPromotionRequests' : IDL.Func(
+      [],
+      [IDL.Vec(PromotionRequest)],
+      ['query'],
+    ),
   'listAvailableProducts' : IDL.Func([], [IDL.Vec(Product)], ['query']),
   'listProductFiles' : IDL.Func(
       [IDL.Nat],
@@ -192,6 +207,11 @@ export const idlService = IDL.Service({
   'removeFileFromProduct' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'savePaymentSettings' : IDL.Func([PaymentSettings], [], []),
+  'submitPromotionRequest' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
   'updateAd' : IDL.Func(
       [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Bool],
       [],
@@ -213,6 +233,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updatePromotionRequestStatus' : IDL.Func([IDL.Nat, IDL.Text], [], []),
   'validateCoupon' : IDL.Func(
       [IDL.Text, Username],
       [IDL.Record({ 'soloUse' : IDL.Bool, 'coupon' : Coupon })],
@@ -293,6 +314,16 @@ export const idlFactory = ({ IDL }) => {
     'isActive' : IDL.Bool,
     'maxUses' : IDL.Nat,
   });
+  const PromotionRequest = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : IDL.Text,
+    'link' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'submitterUsername' : IDL.Text,
+    'description' : IDL.Text,
+    'imageUrl' : IDL.Text,
+    'promotionType' : IDL.Text,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -355,6 +386,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Tuple(Username, IDL.Vec(Order)))],
         ['query'],
       ),
+    'listAllPromotionRequests' : IDL.Func(
+        [],
+        [IDL.Vec(PromotionRequest)],
+        ['query'],
+      ),
     'listAvailableProducts' : IDL.Func([], [IDL.Vec(Product)], ['query']),
     'listProductFiles' : IDL.Func(
         [IDL.Nat],
@@ -404,6 +440,11 @@ export const idlFactory = ({ IDL }) => {
     'removeFileFromProduct' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'savePaymentSettings' : IDL.Func([PaymentSettings], [], []),
+    'submitPromotionRequest' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
     'updateAd' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Bool],
         [],
@@ -425,6 +466,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'updatePromotionRequestStatus' : IDL.Func([IDL.Nat, IDL.Text], [], []),
     'validateCoupon' : IDL.Func(
         [IDL.Text, Username],
         [IDL.Record({ 'soloUse' : IDL.Bool, 'coupon' : Coupon })],
