@@ -1,8 +1,8 @@
-import { Button } from "@/components/ui/button";
-import { UserCircle, ShoppingBag, Gamepad2, Menu } from "lucide-react";
-import type { Page } from "@/types";
 import type { UserProfile } from "@/backend.d";
 import { AuroraMenu } from "@/components/AuroraMenu";
+import { Button } from "@/components/ui/button";
+import type { Page } from "@/types";
+import { Gamepad2, Menu, ShoppingBag, UserCircle } from "lucide-react";
 
 interface NavbarProps {
   currentPage: Page;
@@ -64,7 +64,9 @@ export function Navbar({
                 onClick={() => {
                   onNavigate("store");
                   setTimeout(() => {
-                    document.getElementById("subscriptions")?.scrollIntoView({ behavior: "smooth" });
+                    document
+                      .getElementById("subscriptions")
+                      ?.scrollIntoView({ behavior: "smooth" });
                   }, 100);
                 }}
               />
@@ -87,8 +89,13 @@ export function Navbar({
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-body font-medium text-foreground/80 hover:text-foreground transition-colors"
                   style={{ background: "oklch(0.18 0.06 285)" }}
                 >
-                  <UserCircle className="w-4 h-4" style={{ color: "oklch(0.62 0.27 355)" }} />
-                  <span className="hidden sm:inline max-w-24 truncate">{userProfile.username}</span>
+                  <UserCircle
+                    className="w-4 h-4"
+                    style={{ color: "oklch(0.62 0.27 355)" }}
+                  />
+                  <span className="hidden sm:inline max-w-24 truncate">
+                    {userProfile.username}
+                  </span>
                 </button>
               ) : (
                 <Button
@@ -112,8 +119,12 @@ export function Navbar({
                     ? "oklch(0.62 0.27 355 / 0.15)"
                     : "oklch(0.15 0.05 285)",
                   border: `1px solid ${isMenuOpen ? "oklch(0.62 0.27 355 / 0.6)" : "oklch(0.62 0.27 355 / 0.25)"}`,
-                  color: isMenuOpen ? "oklch(0.62 0.27 355)" : "oklch(0.7 0.04 285)",
-                  boxShadow: isMenuOpen ? "0 0 12px oklch(0.62 0.27 355 / 0.3)" : "none",
+                  color: isMenuOpen
+                    ? "oklch(0.62 0.27 355)"
+                    : "oklch(0.7 0.04 285)",
+                  boxShadow: isMenuOpen
+                    ? "0 0 12px oklch(0.62 0.27 355 / 0.3)"
+                    : "none",
                 }}
               >
                 <Menu className="w-4 h-4" />

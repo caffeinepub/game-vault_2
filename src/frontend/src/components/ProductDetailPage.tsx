@@ -1,8 +1,8 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ShoppingBag, Gamepad2, Download } from "lucide-react";
-import type { Page, CheckoutItem } from "@/types";
 import type { Product } from "@/backend.d";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import type { CheckoutItem, Page } from "@/types";
+import { ArrowLeft, Download, Gamepad2, ShoppingBag } from "lucide-react";
 
 interface ProductDetailPageProps {
   product: Product;
@@ -33,7 +33,11 @@ export function ProductDetailPage({
       onNavigate("auth");
       return;
     }
-    onSelectCheckoutItem({ id: product.id, name: product.name, price: product.price });
+    onSelectCheckoutItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+    });
     onNavigate("checkout");
   };
 
@@ -78,7 +82,9 @@ export function ProductDetailPage({
                 }}
               >
                 <span className="text-8xl">{isDownload ? "💾" : "🎮"}</span>
-                <span className="text-foreground/40 font-body text-sm">{getCategoryLabel(product.category)}</span>
+                <span className="text-foreground/40 font-body text-sm">
+                  {getCategoryLabel(product.category)}
+                </span>
               </div>
             )}
           </div>
@@ -89,12 +95,20 @@ export function ProductDetailPage({
               <Badge
                 className="font-body text-sm font-semibold mb-3 flex items-center gap-1.5 w-fit"
                 style={{
-                  background: isDownload ? "oklch(0.7 0.22 45 / 0.2)" : "oklch(0.62 0.27 355 / 0.2)",
-                  color: isDownload ? "oklch(0.7 0.22 45)" : "oklch(0.62 0.27 355)",
+                  background: isDownload
+                    ? "oklch(0.7 0.22 45 / 0.2)"
+                    : "oklch(0.62 0.27 355 / 0.2)",
+                  color: isDownload
+                    ? "oklch(0.7 0.22 45)"
+                    : "oklch(0.62 0.27 355)",
                   border: `1px solid ${isDownload ? "oklch(0.7 0.22 45 / 0.4)" : "oklch(0.62 0.27 355 / 0.4)"}`,
                 }}
               >
-                {isDownload ? <Download className="w-3.5 h-3.5" /> : <Gamepad2 className="w-3.5 h-3.5" />}
+                {isDownload ? (
+                  <Download className="w-3.5 h-3.5" />
+                ) : (
+                  <Gamepad2 className="w-3.5 h-3.5" />
+                )}
                 {getCategoryLabel(product.category)}
               </Badge>
 
@@ -109,7 +123,8 @@ export function ProductDetailPage({
               </h1>
 
               <p className="text-foreground/70 font-body text-base leading-relaxed">
-                {product.description || "Premium digital gaming content. Delivered within 3-7 business days after purchase."}
+                {product.description ||
+                  "Premium digital gaming content. Delivered within 3-7 business days after purchase."}
               </p>
             </div>
 
@@ -119,7 +134,10 @@ export function ProductDetailPage({
               style={{ borderColor: "oklch(0.7 0.22 45 / 0.3)" }}
             >
               <h3 className="font-body font-semibold text-foreground/90 mb-2 flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4" style={{ color: "oklch(0.7 0.22 45)" }} />
+                <ShoppingBag
+                  className="w-4 h-4"
+                  style={{ color: "oklch(0.7 0.22 45)" }}
+                />
                 How it works
               </h3>
               <ul className="space-y-2 text-foreground/60 font-body text-sm">
@@ -145,10 +163,15 @@ export function ProductDetailPage({
             {/* Price & CTA */}
             <div className="flex items-center gap-6">
               <div>
-                <p className="text-foreground/40 font-body text-xs uppercase tracking-widest mb-1">Price</p>
+                <p className="text-foreground/40 font-body text-xs uppercase tracking-widest mb-1">
+                  Price
+                </p>
                 <span
                   className="font-display text-5xl"
-                  style={{ color: "oklch(0.85 0.19 85)", textShadow: "0 0 15px oklch(0.85 0.19 85 / 0.6)" }}
+                  style={{
+                    color: "oklch(0.85 0.19 85)",
+                    textShadow: "0 0 15px oklch(0.85 0.19 85 / 0.6)",
+                  }}
                 >
                   {formatPrice(product.price)}
                 </span>

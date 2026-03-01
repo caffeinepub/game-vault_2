@@ -1,13 +1,49 @@
-import { useEffect, useState } from "react";
+import type {
+  Ad,
+  Membership,
+  Package,
+  PaymentSettings,
+  Product,
+} from "@/backend.d";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ShoppingBag, Gamepad2, Download, Star, ChevronRight, Zap, Car, Code, Search, X, Crown, ExternalLink, CheckCircle2, Loader2, Copy, ClipboardCheck, Megaphone, Youtube, Building2, Link2, FileText, Image, ArrowLeft, CheckCircle } from "lucide-react";
-import { SiPaypal, SiBitcoin, SiEthereum } from "react-icons/si";
+import type { CheckoutItem, Page } from "@/types";
+import {
+  ArrowLeft,
+  Building2,
+  Car,
+  CheckCircle,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardCheck,
+  Code,
+  Copy,
+  Crown,
+  Download,
+  ExternalLink,
+  FileText,
+  Gamepad2,
+  Image,
+  Link2,
+  Loader2,
+  Megaphone,
+  Search,
+  ShoppingBag,
+  Star,
+  X,
+  Youtube,
+  Zap,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { SiBitcoin, SiEthereum, SiPaypal } from "react-icons/si";
 import { toast } from "sonner";
-import type { Page, CheckoutItem } from "@/types";
-import type { Product, Package, Ad, Membership, PaymentSettings } from "@/backend.d";
 
 interface StorePageProps {
   products: Product[];
@@ -22,8 +58,17 @@ interface StorePageProps {
   hasActiveMembership?: boolean;
   membershipStatus?: Membership | null;
   paymentSettings?: PaymentSettings | null;
-  onPurchaseMembership?: (paymentMethod: string, paymentRef: string) => Promise<bigint>;
-  onSubmitPromotion?: (submitterUsername: string, promotionType: string, link: string, description: string, imageUrl: string) => Promise<bigint>;
+  onPurchaseMembership?: (
+    paymentMethod: string,
+    paymentRef: string,
+  ) => Promise<bigint>;
+  onSubmitPromotion?: (
+    submitterUsername: string,
+    promotionType: string,
+    link: string,
+    description: string,
+    imageUrl: string,
+  ) => Promise<bigint>;
 }
 
 function formatPrice(pricePence: bigint): string {
@@ -71,10 +116,12 @@ export function StorePage({
     window.scrollTo({ top: 0 });
   }, []);
 
-  const visibleAds = activeAds.filter((ad) => !dismissedAds.has(ad.id.toString()));
+  const visibleAds = activeAds.filter(
+    (ad) => !dismissedAds.has(ad.id.toString()),
+  );
 
   const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -92,14 +139,19 @@ export function StorePage({
             <AdBanner
               key={ad.id.toString()}
               ad={ad}
-              onDismiss={() => setDismissedAds((prev) => new Set([...prev, ad.id.toString()]))}
+              onDismiss={() =>
+                setDismissedAds((prev) => new Set([...prev, ad.id.toString()]))
+              }
             />
           ))}
         </div>
       )}
 
       {/* Hero section */}
-      <section className="relative w-full overflow-hidden" style={{ height: "clamp(220px, 35vw, 420px)" }}>
+      <section
+        className="relative w-full overflow-hidden"
+        style={{ height: "clamp(220px, 35vw, 420px)" }}
+      >
         <img
           src="/assets/generated/hero-banner.dim_1200x400.jpg"
           alt="Game Vault Banner"
@@ -108,7 +160,8 @@ export function StorePage({
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(90deg, oklch(0.09 0.04 285 / 0.9) 0%, oklch(0.09 0.04 285 / 0.4) 60%, transparent 100%)",
+            background:
+              "linear-gradient(90deg, oklch(0.09 0.04 285 / 0.9) 0%, oklch(0.09 0.04 285 / 0.4) 60%, transparent 100%)",
           }}
         />
         <div className="absolute inset-0 flex items-center">
@@ -124,17 +177,24 @@ export function StorePage({
                 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-tight mb-4"
                 style={{
                   color: "white",
-                  textShadow: "0 0 30px oklch(0.62 0.27 355 / 0.6), 0 2px 8px rgba(0,0,0,0.8)",
+                  textShadow:
+                    "0 0 30px oklch(0.62 0.27 355 / 0.6), 0 2px 8px rgba(0,0,0,0.8)",
                 }}
               >
                 Level Up Your
                 <br />
-                <span style={{ color: "oklch(0.7 0.22 45)", textShadow: "0 0 20px oklch(0.7 0.22 45 / 0.7)" }}>
+                <span
+                  style={{
+                    color: "oklch(0.7 0.22 45)",
+                    textShadow: "0 0 20px oklch(0.7 0.22 45 / 0.7)",
+                  }}
+                >
                   Game Collection
                 </span>
               </h1>
               <p className="text-foreground/70 font-body text-sm sm:text-base max-w-md">
-                Premium digital game accounts & downloads. Instant access to your favourite titles.
+                Premium digital game accounts & downloads. Instant access to
+                your favourite titles.
               </p>
             </div>
           </div>
@@ -151,7 +211,10 @@ export function StorePage({
 
       <div className="container mx-auto px-4 py-12">
         {/* Promote Your Business button */}
-        <div className="flex justify-center mb-6" style={{ animation: "fade-in-up 0.5s 0.1s ease-out both" }}>
+        <div
+          className="flex justify-center mb-6"
+          style={{ animation: "fade-in-up 0.5s 0.1s ease-out both" }}
+        >
           <button
             type="button"
             onClick={() => {
@@ -163,27 +226,41 @@ export function StorePage({
             }}
             className="relative group flex items-center gap-2.5 px-6 py-3 rounded-xl font-body font-bold text-sm overflow-hidden transition-all duration-300"
             style={{
-              background: "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.15), oklch(0.55 0.2 285 / 0.15))",
+              background:
+                "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.15), oklch(0.55 0.2 285 / 0.15))",
               border: "1px solid oklch(0.62 0.27 355 / 0.35)",
               color: "oklch(0.82 0.15 355)",
               boxShadow: "0 0 20px oklch(0.62 0.27 355 / 0.1)",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.25), oklch(0.55 0.2 285 / 0.2))";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 30px oklch(0.62 0.27 355 / 0.25), 0 0 60px oklch(0.7 0.22 45 / 0.1)";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.62 0.27 355 / 0.6)";
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.25), oklch(0.55 0.2 285 / 0.2))";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                "0 0 30px oklch(0.62 0.27 355 / 0.25), 0 0 60px oklch(0.7 0.22 45 / 0.1)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "oklch(0.62 0.27 355 / 0.6)";
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.15), oklch(0.55 0.2 285 / 0.15))";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px oklch(0.62 0.27 355 / 0.1)";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.62 0.27 355 / 0.35)";
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.15), oklch(0.55 0.2 285 / 0.15))";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                "0 0 20px oklch(0.62 0.27 355 / 0.1)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "oklch(0.62 0.27 355 / 0.35)";
             }}
           >
-            <Megaphone className="w-4 h-4 shrink-0" style={{ color: "oklch(0.7 0.22 45)" }} />
+            <Megaphone
+              className="w-4 h-4 shrink-0"
+              style={{ color: "oklch(0.7 0.22 45)" }}
+            />
             <span>Promote Your Business / Channel</span>
             <span
               className="px-1.5 py-0.5 rounded-md font-body text-xs font-semibold"
-              style={{ background: "oklch(0.7 0.22 45 / 0.2)", color: "oklch(0.82 0.18 80)", border: "1px solid oklch(0.7 0.22 45 / 0.35)" }}
+              style={{
+                background: "oklch(0.7 0.22 45 / 0.2)",
+                color: "oklch(0.82 0.18 80)",
+                border: "1px solid oklch(0.7 0.22 45 / 0.35)",
+              }}
             >
               FREE
             </span>
@@ -212,11 +289,14 @@ export function StorePage({
                 backdropFilter: "blur(12px)",
               }}
               onFocus={(e) => {
-                e.currentTarget.style.border = "1px solid oklch(0.62 0.27 355 / 0.6)";
-                e.currentTarget.style.boxShadow = "0 0 0 3px oklch(0.62 0.27 355 / 0.12), 0 0 20px oklch(0.62 0.27 355 / 0.1)";
+                e.currentTarget.style.border =
+                  "1px solid oklch(0.62 0.27 355 / 0.6)";
+                e.currentTarget.style.boxShadow =
+                  "0 0 0 3px oklch(0.62 0.27 355 / 0.12), 0 0 20px oklch(0.62 0.27 355 / 0.1)";
               }}
               onBlur={(e) => {
-                e.currentTarget.style.border = "1px solid oklch(0.62 0.27 355 / 0.2)";
+                e.currentTarget.style.border =
+                  "1px solid oklch(0.62 0.27 355 / 0.2)";
                 e.currentTarget.style.boxShadow = "none";
               }}
             />
@@ -244,7 +324,9 @@ export function StorePage({
               No products found
             </h3>
             <p className="text-foreground/50 font-body text-sm">
-              No products found for &ldquo;<span style={{ color: "oklch(0.7 0.22 45)" }}>{searchQuery}</span>&rdquo;
+              No products found for &ldquo;
+              <span style={{ color: "oklch(0.7 0.22 45)" }}>{searchQuery}</span>
+              &rdquo;
             </p>
           </div>
         )}
@@ -255,7 +337,10 @@ export function StorePage({
             <div>
               <h2
                 className="font-display text-3xl sm:text-4xl"
-                style={{ color: "white", textShadow: "0 0 15px oklch(0.62 0.27 355 / 0.5)" }}
+                style={{
+                  color: "white",
+                  textShadow: "0 0 15px oklch(0.62 0.27 355 / 0.5)",
+                }}
               >
                 Featured Products
               </h2>
@@ -263,17 +348,32 @@ export function StorePage({
                 Game accounts & downloadable content
               </p>
             </div>
-            <ShoppingBag className="w-8 h-8 opacity-30" style={{ color: "oklch(0.62 0.27 355)" }} />
+            <ShoppingBag
+              className="w-8 h-8 opacity-30"
+              style={{ color: "oklch(0.62 0.27 355)" }}
+            />
           </div>
 
           {isLoadingProducts ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {(["a", "b", "c", "d", "e", "f"] as const).map((sk) => (
                 <div key={`skel-${sk}`} className="glass-card p-4 space-y-3">
-                  <Skeleton className="w-full h-40 rounded-lg" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-4 w-3/4" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-4 w-1/2" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-9 w-full" style={{ background: "oklch(0.2 0.04 285)" }} />
+                  <Skeleton
+                    className="w-full h-40 rounded-lg"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-4 w-3/4"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-4 w-1/2"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-9 w-full"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
                 </div>
               ))}
             </div>
@@ -299,7 +399,11 @@ export function StorePage({
                       onNavigate("auth");
                       return;
                     }
-                    onSelectCheckoutItem({ id: product.id, name: product.name, price: product.price });
+                    onSelectCheckoutItem({
+                      id: product.id,
+                      name: product.name,
+                      price: product.price,
+                    });
                     onNavigate("checkout");
                   }}
                 />
@@ -314,7 +418,10 @@ export function StorePage({
             <div>
               <h2
                 className="font-display text-3xl sm:text-4xl"
-                style={{ color: "white", textShadow: "0 0 15px oklch(0.72 0.25 25 / 0.5)" }}
+                style={{
+                  color: "white",
+                  textShadow: "0 0 15px oklch(0.72 0.25 25 / 0.5)",
+                }}
               >
                 Car Parking Multiplayer Gg Services
               </h2>
@@ -322,27 +429,47 @@ export function StorePage({
                 Premium CPM account services &amp; boosting
               </p>
             </div>
-            <Car className="w-8 h-8 opacity-30" style={{ color: "oklch(0.72 0.25 25)" }} />
+            <Car
+              className="w-8 h-8 opacity-30"
+              style={{ color: "oklch(0.72 0.25 25)" }}
+            />
           </div>
 
           {isLoadingProducts ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {(["a", "b", "c"] as const).map((sk) => (
-                <div key={`cpm-svc-skel-${sk}`} className="glass-card p-4 space-y-3">
-                  <Skeleton className="w-full h-40 rounded-lg" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-4 w-3/4" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-4 w-1/2" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-9 w-full" style={{ background: "oklch(0.2 0.04 285)" }} />
+                <div
+                  key={`cpm-svc-skel-${sk}`}
+                  className="glass-card p-4 space-y-3"
+                >
+                  <Skeleton
+                    className="w-full h-40 rounded-lg"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-4 w-3/4"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-4 w-1/2"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-9 w-full"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
                 </div>
               ))}
             </div>
-          ) : filteredProducts.filter((p) => p.category === "cpm_services").length === 0 && !searchQuery ? (
+          ) : filteredProducts.filter((p) => p.category === "cpm_services")
+              .length === 0 && !searchQuery ? (
             <EmptyState
               icon="🚗"
               title="No CPM Services yet"
               description="Check back soon for Car Parking Multiplayer services!"
             />
-          ) : filteredProducts.filter((p) => p.category === "cpm_services").length === 0 ? null : (
+          ) : filteredProducts.filter((p) => p.category === "cpm_services")
+              .length === 0 ? null : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts
                 .filter((p) => p.category === "cpm_services")
@@ -360,7 +487,11 @@ export function StorePage({
                         onNavigate("auth");
                         return;
                       }
-                      onSelectCheckoutItem({ id: product.id, name: product.name, price: product.price });
+                      onSelectCheckoutItem({
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                      });
                       onNavigate("checkout");
                     }}
                   />
@@ -375,7 +506,10 @@ export function StorePage({
             <div>
               <h2
                 className="font-display text-3xl sm:text-4xl"
-                style={{ color: "white", textShadow: "0 0 15px oklch(0.75 0.18 190 / 0.5)" }}
+                style={{
+                  color: "white",
+                  textShadow: "0 0 15px oklch(0.75 0.18 190 / 0.5)",
+                }}
               >
                 Car Parking Multiplayer Gg Lua Scripts
               </h2>
@@ -383,27 +517,47 @@ export function StorePage({
                 Custom Lua scripts for Car Parking Multiplayer
               </p>
             </div>
-            <Code className="w-8 h-8 opacity-30" style={{ color: "oklch(0.75 0.18 190)" }} />
+            <Code
+              className="w-8 h-8 opacity-30"
+              style={{ color: "oklch(0.75 0.18 190)" }}
+            />
           </div>
 
           {isLoadingProducts ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {(["a", "b", "c"] as const).map((sk) => (
-                <div key={`cpm-lua-skel-${sk}`} className="glass-card p-4 space-y-3">
-                  <Skeleton className="w-full h-40 rounded-lg" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-4 w-3/4" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-4 w-1/2" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-9 w-full" style={{ background: "oklch(0.2 0.04 285)" }} />
+                <div
+                  key={`cpm-lua-skel-${sk}`}
+                  className="glass-card p-4 space-y-3"
+                >
+                  <Skeleton
+                    className="w-full h-40 rounded-lg"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-4 w-3/4"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-4 w-1/2"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-9 w-full"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
                 </div>
               ))}
             </div>
-          ) : filteredProducts.filter((p) => p.category === "cpm_lua_scripts").length === 0 && !searchQuery ? (
+          ) : filteredProducts.filter((p) => p.category === "cpm_lua_scripts")
+              .length === 0 && !searchQuery ? (
             <EmptyState
               icon="💻"
               title="No Lua Scripts yet"
               description="Lua scripts for Car Parking Multiplayer coming soon!"
             />
-          ) : filteredProducts.filter((p) => p.category === "cpm_lua_scripts").length === 0 ? null : (
+          ) : filteredProducts.filter((p) => p.category === "cpm_lua_scripts")
+              .length === 0 ? null : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts
                 .filter((p) => p.category === "cpm_lua_scripts")
@@ -421,7 +575,11 @@ export function StorePage({
                         onNavigate("auth");
                         return;
                       }
-                      onSelectCheckoutItem({ id: product.id, name: product.name, price: product.price });
+                      onSelectCheckoutItem({
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                      });
                       onNavigate("checkout");
                     }}
                   />
@@ -436,7 +594,10 @@ export function StorePage({
             <div>
               <h2
                 className="font-display text-3xl sm:text-4xl"
-                style={{ color: "white", textShadow: "0 0 15px oklch(0.82 0.18 80 / 0.5)" }}
+                style={{
+                  color: "white",
+                  textShadow: "0 0 15px oklch(0.82 0.18 80 / 0.5)",
+                }}
               >
                 Ad-Free Membership
               </h2>
@@ -444,7 +605,10 @@ export function StorePage({
                 Browse without interruptions — just £0.05/month
               </p>
             </div>
-            <Crown className="w-8 h-8 opacity-30" style={{ color: "oklch(0.82 0.18 80)" }} />
+            <Crown
+              className="w-8 h-8 opacity-30"
+              style={{ color: "oklch(0.82 0.18 80)" }}
+            />
           </div>
 
           {hasActiveMembership ? (
@@ -458,9 +622,15 @@ export function StorePage({
               <div className="flex items-start gap-4">
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: "oklch(0.82 0.18 80 / 0.2)", border: "2px solid oklch(0.82 0.18 80 / 0.5)" }}
+                  style={{
+                    background: "oklch(0.82 0.18 80 / 0.2)",
+                    border: "2px solid oklch(0.82 0.18 80 / 0.5)",
+                  }}
                 >
-                  <Crown className="w-6 h-6" style={{ color: "oklch(0.82 0.18 80)" }} />
+                  <Crown
+                    className="w-6 h-6"
+                    style={{ color: "oklch(0.82 0.18 80)" }}
+                  />
                 </div>
                 <div>
                   <p
@@ -473,14 +643,19 @@ export function StorePage({
                     <p className="text-foreground/60 font-body text-sm">
                       Active until{" "}
                       <span className="font-semibold text-foreground/80">
-                        {new Date(Number(membershipStatus.expiresAt) / 1_000_000).toLocaleDateString("en-GB", {
-                          day: "2-digit", month: "long", year: "numeric",
+                        {new Date(
+                          Number(membershipStatus.expiresAt) / 1_000_000,
+                        ).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
                         })}
                       </span>
                     </p>
                   )}
                   <p className="text-foreground/40 font-body text-xs mt-1">
-                    Repurchase next month to continue enjoying an ad-free experience.
+                    Repurchase next month to continue enjoying an ad-free
+                    experience.
                   </p>
                 </div>
               </div>
@@ -505,24 +680,45 @@ export function StorePage({
               <div className="flex items-start gap-4 mb-5">
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: "oklch(0.82 0.18 80 / 0.15)", border: "2px solid oklch(0.82 0.18 80 / 0.35)" }}
+                  style={{
+                    background: "oklch(0.82 0.18 80 / 0.15)",
+                    border: "2px solid oklch(0.82 0.18 80 / 0.35)",
+                  }}
                 >
-                  <Crown className="w-6 h-6" style={{ color: "oklch(0.82 0.18 80)" }} />
+                  <Crown
+                    className="w-6 h-6"
+                    style={{ color: "oklch(0.82 0.18 80)" }}
+                  />
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2 mb-1">
                     <span
                       className="font-display text-3xl"
-                      style={{ color: "oklch(0.82 0.18 80)", textShadow: "0 0 12px oklch(0.82 0.18 80 / 0.4)" }}
+                      style={{
+                        color: "oklch(0.82 0.18 80)",
+                        textShadow: "0 0 12px oklch(0.82 0.18 80 / 0.4)",
+                      }}
                     >
                       £0.05
                     </span>
-                    <span className="font-body text-foreground/50 text-sm">/ month</span>
+                    <span className="font-body text-foreground/50 text-sm">
+                      / month
+                    </span>
                   </div>
                   <ul className="space-y-1">
-                    {["Remove all ads for 30 days", "One-time payment — no auto-renewal", "Instant activation"].map((feat) => (
-                      <li key={feat} className="flex items-center gap-1.5 font-body text-sm text-foreground/70">
-                        <Star className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.82 0.18 80)" }} />
+                    {[
+                      "Remove all ads for 30 days",
+                      "One-time payment — no auto-renewal",
+                      "Instant activation",
+                    ].map((feat) => (
+                      <li
+                        key={feat}
+                        className="flex items-center gap-1.5 font-body text-sm text-foreground/70"
+                      >
+                        <Star
+                          className="w-3.5 h-3.5 shrink-0"
+                          style={{ color: "oklch(0.82 0.18 80)" }}
+                        />
                         {feat}
                       </li>
                     ))}
@@ -532,7 +728,8 @@ export function StorePage({
               <Button
                 className="w-full font-body font-bold text-sm"
                 style={{
-                  background: "linear-gradient(135deg, oklch(0.7 0.2 75), oklch(0.78 0.18 90))",
+                  background:
+                    "linear-gradient(135deg, oklch(0.7 0.2 75), oklch(0.78 0.18 90))",
                   color: "oklch(0.12 0.04 285)",
                   boxShadow: "0 0 20px oklch(0.82 0.18 80 / 0.3)",
                 }}
@@ -557,7 +754,10 @@ export function StorePage({
             <div>
               <h2
                 className="font-display text-3xl sm:text-4xl"
-                style={{ color: "white", textShadow: "0 0 15px oklch(0.7 0.22 45 / 0.5)" }}
+                style={{
+                  color: "white",
+                  textShadow: "0 0 15px oklch(0.7 0.22 45 / 0.5)",
+                }}
               >
                 Bonus Content
               </h2>
@@ -565,17 +765,35 @@ export function StorePage({
                 Monthly bonus packages — pay once, enjoy all month
               </p>
             </div>
-            <Zap className="w-8 h-8 opacity-30" style={{ color: "oklch(0.7 0.22 45)" }} />
+            <Zap
+              className="w-8 h-8 opacity-30"
+              style={{ color: "oklch(0.7 0.22 45)" }}
+            />
           </div>
 
           {isLoadingPackages ? (
             <div className="flex gap-6 overflow-hidden">
               {(["x", "y", "z"] as const).map((sk) => (
-                <div key={`pkg-skel-${sk}`} className="glass-card p-5 min-w-64 space-y-3">
-                  <Skeleton className="h-5 w-3/4" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-4 w-full" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-4 w-2/3" style={{ background: "oklch(0.2 0.04 285)" }} />
-                  <Skeleton className="h-9 w-full mt-4" style={{ background: "oklch(0.2 0.04 285)" }} />
+                <div
+                  key={`pkg-skel-${sk}`}
+                  className="glass-card p-5 min-w-64 space-y-3"
+                >
+                  <Skeleton
+                    className="h-5 w-3/4"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-4 w-full"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-4 w-2/3"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
+                  <Skeleton
+                    className="h-9 w-full mt-4"
+                    style={{ background: "oklch(0.2 0.04 285)" }}
+                  />
                 </div>
               ))}
             </div>
@@ -597,7 +815,12 @@ export function StorePage({
                       onNavigate("auth");
                       return;
                     }
-                    onSelectCheckoutItem({ id: pkg.id, name: pkg.name, price: pkg.price, isPackage: true });
+                    onSelectCheckoutItem({
+                      id: pkg.id,
+                      name: pkg.name,
+                      price: pkg.price,
+                      isPackage: true,
+                    });
                     onNavigate("checkout");
                   }}
                 />
@@ -610,7 +833,10 @@ export function StorePage({
       {/* Footer */}
       <footer
         className="border-t mt-auto"
-        style={{ borderColor: "oklch(0.62 0.27 355 / 0.15)", background: "oklch(0.08 0.03 285)" }}
+        style={{
+          borderColor: "oklch(0.62 0.27 355 / 0.15)",
+          background: "oklch(0.08 0.03 285)",
+        }}
       >
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -620,7 +846,8 @@ export function StorePage({
               className="h-8 w-auto logo-glow-sm"
             />
             <div className="flex items-center gap-4 text-foreground/40 font-body text-sm">
-              <span>© 2026. Built with ❤️ using{" "}
+              <span>
+                © 2026. Built with ❤️ using{" "}
                 <a
                   href="https://caffeine.ai"
                   target="_blank"
@@ -665,7 +892,8 @@ function ProductCard({
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 30px oklch(0.62 0.27 355 / 0.2), 0 0 0 1px oklch(0.62 0.27 355 / 0.3)";
+        (e.currentTarget as HTMLElement).style.boxShadow =
+          "0 4px 30px oklch(0.62 0.27 355 / 0.2), 0 0 0 1px oklch(0.62 0.27 355 / 0.3)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
@@ -689,14 +917,18 @@ function ProductCard({
         )}
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(0deg, oklch(0.13 0.05 285 / 0.8) 0%, transparent 50%)" }}
+          style={{
+            background:
+              "linear-gradient(0deg, oklch(0.13 0.05 285 / 0.8) 0%, transparent 50%)",
+          }}
         />
         <Badge
           className="absolute top-3 left-3 text-white font-body text-xs font-semibold flex items-center gap-1"
           style={{
-            background: product.category === "download_file"
-              ? "oklch(0.7 0.22 45 / 0.9)"
-              : "oklch(0.62 0.27 355 / 0.9)",
+            background:
+              product.category === "download_file"
+                ? "oklch(0.7 0.22 45 / 0.9)"
+                : "oklch(0.62 0.27 355 / 0.9)",
           }}
         >
           {getCategoryIcon(product.category)}
@@ -720,7 +952,10 @@ function ProductCard({
         <div className="flex items-center justify-between">
           <span
             className="font-display text-xl"
-            style={{ color: "oklch(0.85 0.19 85)", textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)" }}
+            style={{
+              color: "oklch(0.85 0.19 85)",
+              textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)",
+            }}
           >
             {formatPrice(product.price)}
           </span>
@@ -749,7 +984,9 @@ function ProductPlaceholder({ category }: { category: string }) {
       }}
     >
       <span className="text-5xl">{isDownload ? "💾" : "🎮"}</span>
-      <span className="text-foreground/40 font-body text-xs">{getCategoryLabel(category)}</span>
+      <span className="text-foreground/40 font-body text-xs">
+        {getCategoryLabel(category)}
+      </span>
     </div>
   );
 }
@@ -776,34 +1013,54 @@ function PackageCard({
         <div>
           <Badge
             className="text-xs font-body mb-2"
-            style={{ background: "oklch(0.7 0.22 45 / 0.2)", color: "oklch(0.7 0.22 45)", border: "1px solid oklch(0.7 0.22 45 / 0.3)" }}
+            style={{
+              background: "oklch(0.7 0.22 45 / 0.2)",
+              color: "oklch(0.7 0.22 45)",
+              border: "1px solid oklch(0.7 0.22 45 / 0.3)",
+            }}
           >
             Monthly
           </Badge>
-          <h3 className="font-body font-bold text-foreground text-base">{pkg.name}</h3>
+          <h3 className="font-body font-bold text-foreground text-base">
+            {pkg.name}
+          </h3>
         </div>
         <span
           className="font-display text-2xl ml-2 shrink-0"
-          style={{ color: "oklch(0.85 0.19 85)", textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)" }}
+          style={{
+            color: "oklch(0.85 0.19 85)",
+            textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)",
+          }}
         >
           {formatPrice(pkg.price)}
         </span>
       </div>
 
-      <p className="text-foreground/50 font-body text-sm mb-4 flex-1">{pkg.description}</p>
+      <p className="text-foreground/50 font-body text-sm mb-4 flex-1">
+        {pkg.description}
+      </p>
 
       {pkg.features.length > 0 && (
         <ul className="space-y-1.5 mb-5">
           {pkg.features.map((feature) => (
-            <li key={feature} className="flex items-center gap-2 text-foreground/70 font-body text-sm">
-              <Star className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.7 0.22 45)" }} />
+            <li
+              key={feature}
+              className="flex items-center gap-2 text-foreground/70 font-body text-sm"
+            >
+              <Star
+                className="w-3.5 h-3.5 shrink-0"
+                style={{ color: "oklch(0.7 0.22 45)" }}
+              />
               {feature}
             </li>
           ))}
         </ul>
       )}
 
-      <Button className="btn-gradient text-white font-body font-semibold w-full mt-auto" onClick={onSubscribe}>
+      <Button
+        className="btn-gradient text-white font-body font-semibold w-full mt-auto"
+        onClick={onSubscribe}
+      >
         Subscribe This Month
       </Button>
     </article>
@@ -824,9 +1081,13 @@ function AdBanner({ ad, onDismiss }: { ad: Ad; onDismiss: () => void }) {
             className="h-10 w-auto rounded object-cover shrink-0 max-w-24"
           />
           <div className="min-w-0">
-            <p className="font-body font-semibold text-sm text-foreground truncate">{ad.title}</p>
+            <p className="font-body font-semibold text-sm text-foreground truncate">
+              {ad.title}
+            </p>
             {ad.description && (
-              <p className="text-foreground/50 font-body text-xs truncate">{ad.description}</p>
+              <p className="text-foreground/50 font-body text-xs truncate">
+                {ad.description}
+              </p>
             )}
           </div>
           {ad.linkUrl && (
@@ -835,7 +1096,11 @@ function AdBanner({ ad, onDismiss }: { ad: Ad; onDismiss: () => void }) {
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 flex items-center gap-1 font-body text-xs font-semibold px-3 py-1.5 rounded-md transition-colors hover:opacity-80"
-              style={{ background: "oklch(0.7 0.22 45 / 0.15)", color: "oklch(0.7 0.22 45)", border: "1px solid oklch(0.7 0.22 45 / 0.3)" }}
+              style={{
+                background: "oklch(0.7 0.22 45 / 0.15)",
+                color: "oklch(0.7 0.22 45)",
+                border: "1px solid oklch(0.7 0.22 45 / 0.3)",
+              }}
             >
               <ExternalLink className="w-3 h-3" />
               Visit
@@ -851,9 +1116,13 @@ function AdBanner({ ad, onDismiss }: { ad: Ad; onDismiss: () => void }) {
             <span className="text-xs">📢</span>
           </div>
           <div className="min-w-0 flex-1">
-            <span className="font-body font-semibold text-sm text-foreground">{ad.title}</span>
+            <span className="font-body font-semibold text-sm text-foreground">
+              {ad.title}
+            </span>
             {ad.description && (
-              <span className="text-foreground/50 font-body text-xs ml-2">{ad.description}</span>
+              <span className="text-foreground/50 font-body text-xs ml-2">
+                {ad.description}
+              </span>
             )}
           </div>
           {ad.linkUrl && (
@@ -862,7 +1131,11 @@ function AdBanner({ ad, onDismiss }: { ad: Ad; onDismiss: () => void }) {
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 flex items-center gap-1 font-body text-xs font-semibold px-3 py-1.5 rounded-md transition-colors hover:opacity-80"
-              style={{ background: "oklch(0.7 0.22 45 / 0.15)", color: "oklch(0.7 0.22 45)", border: "1px solid oklch(0.7 0.22 45 / 0.3)" }}
+              style={{
+                background: "oklch(0.7 0.22 45 / 0.15)",
+                color: "oklch(0.7 0.22 45)",
+                border: "1px solid oklch(0.7 0.22 45 / 0.3)",
+              }}
             >
               <ExternalLink className="w-3 h-3" />
               Visit
@@ -889,7 +1162,13 @@ function AdBanner({ ad, onDismiss }: { ad: Ad; onDismiss: () => void }) {
   );
 }
 
-type MembershipPaymentMethod = "paypal" | "bitcoin" | "ethereum" | "xbox" | "amazon" | "etsy";
+type MembershipPaymentMethod =
+  | "paypal"
+  | "bitcoin"
+  | "ethereum"
+  | "xbox"
+  | "amazon"
+  | "etsy";
 
 const MEMBERSHIP_PAYMENT_OPTIONS: Array<{
   id: MembershipPaymentMethod;
@@ -932,7 +1211,8 @@ const MEMBERSHIP_PAYMENT_OPTIONS: Array<{
     label: "Xbox Gift Card",
     icon: <span>🎮</span>,
     color: "oklch(0.55 0.2 145)",
-    getAddress: (s) => s.xboxInstructions || "Contact admin for Xbox gift card instructions",
+    getAddress: (s) =>
+      s.xboxInstructions || "Contact admin for Xbox gift card instructions",
     placeholder: "Xbox gift card code",
     isCrypto: false,
   },
@@ -941,7 +1221,8 @@ const MEMBERSHIP_PAYMENT_OPTIONS: Array<{
     label: "Amazon Gift Card",
     icon: <span>📦</span>,
     color: "oklch(0.7 0.18 60)",
-    getAddress: (s) => s.amazonInstructions || "Contact admin for Amazon gift card instructions",
+    getAddress: (s) =>
+      s.amazonInstructions || "Contact admin for Amazon gift card instructions",
     placeholder: "Amazon gift card code",
     isCrypto: false,
   },
@@ -950,7 +1231,8 @@ const MEMBERSHIP_PAYMENT_OPTIONS: Array<{
     label: "Etsy Gift Card",
     icon: <span>🛍️</span>,
     color: "oklch(0.65 0.2 30)",
-    getAddress: (s) => s.etsyInstructions || "Contact admin for Etsy gift card instructions",
+    getAddress: (s) =>
+      s.etsyInstructions || "Contact admin for Etsy gift card instructions",
     placeholder: "Etsy gift card code",
     isCrypto: false,
   },
@@ -971,7 +1253,8 @@ function MembershipCheckout({
   onSuccess: () => void;
   onNavigate: (page: Page) => void;
 }) {
-  const [selectedMethod, setSelectedMethod] = useState<MembershipPaymentMethod | null>(null);
+  const [selectedMethod, setSelectedMethod] =
+    useState<MembershipPaymentMethod | null>(null);
   const [paymentRef, setPaymentRef] = useState("");
   const [isPlacing, setIsPlacing] = useState(false);
   const [purchased, setPurchased] = useState(false);
@@ -985,17 +1268,31 @@ function MembershipCheckout({
   };
 
   const handlePurchase = async () => {
-    if (!selectedMethod) { toast.error("Please select a payment method"); return; }
-    if (!paymentRef.trim()) { toast.error("Please enter your payment reference"); return; }
-    if (!userProfile) { onNavigate("auth"); return; }
-    if (!onPurchase) { toast.error("Purchase not available"); return; }
+    if (!selectedMethod) {
+      toast.error("Please select a payment method");
+      return;
+    }
+    if (!paymentRef.trim()) {
+      toast.error("Please enter your payment reference");
+      return;
+    }
+    if (!userProfile) {
+      onNavigate("auth");
+      return;
+    }
+    if (!onPurchase) {
+      toast.error("Purchase not available");
+      return;
+    }
 
     setIsPlacing(true);
     try {
       await onPurchase(selectedMethod, paymentRef.trim());
       setPurchased(true);
       toast.success("Membership purchased! Ads are now hidden.");
-      setTimeout(() => { onSuccess(); }, 3000);
+      setTimeout(() => {
+        onSuccess();
+      }, 3000);
     } catch (err) {
       console.error(err);
       toast.error("Failed to purchase membership. Please try again.");
@@ -1008,15 +1305,23 @@ function MembershipCheckout({
     return (
       <div
         className="glass-card p-8 max-w-md text-center"
-        style={{ borderColor: "oklch(0.82 0.18 80 / 0.5)", animation: "scale-in 0.3s ease-out both" }}
+        style={{
+          borderColor: "oklch(0.82 0.18 80 / 0.5)",
+          animation: "scale-in 0.3s ease-out both",
+        }}
       >
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ background: "oklch(0.82 0.18 80 / 0.2)", border: "2px solid oklch(0.82 0.18 80 / 0.5)" }}
+          style={{
+            background: "oklch(0.82 0.18 80 / 0.2)",
+            border: "2px solid oklch(0.82 0.18 80 / 0.5)",
+          }}
         >
           <Crown className="w-8 h-8" style={{ color: "oklch(0.82 0.18 80)" }} />
         </div>
-        <h3 className="font-display text-2xl text-white mb-2">Membership Active!</h3>
+        <h3 className="font-display text-2xl text-white mb-2">
+          Membership Active!
+        </h3>
         <p className="text-foreground/60 font-body text-sm">
           You're now an ad-free member for 30 days. Enjoy the store!
         </p>
@@ -1024,13 +1329,21 @@ function MembershipCheckout({
     );
   }
 
-  const selectedOpt = MEMBERSHIP_PAYMENT_OPTIONS.find((o) => o.id === selectedMethod);
-  const address = selectedOpt && paymentSettings ? selectedOpt.getAddress(paymentSettings) : "";
+  const selectedOpt = MEMBERSHIP_PAYMENT_OPTIONS.find(
+    (o) => o.id === selectedMethod,
+  );
+  const address =
+    selectedOpt && paymentSettings
+      ? selectedOpt.getAddress(paymentSettings)
+      : "";
 
   return (
     <div
       className="glass-card p-6 max-w-lg"
-      style={{ borderColor: "oklch(0.82 0.18 80 / 0.3)", animation: "fade-in-up 0.3s ease-out both" }}
+      style={{
+        borderColor: "oklch(0.82 0.18 80 / 0.3)",
+        animation: "fade-in-up 0.3s ease-out both",
+      }}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-body font-bold text-foreground flex items-center gap-2">
@@ -1061,17 +1374,22 @@ function MembershipCheckout({
             onClick={() => setSelectedMethod(opt.id)}
             className="flex items-center gap-2 p-2.5 rounded-lg font-body text-xs font-medium transition-all text-left"
             style={{
-              background: selectedMethod === opt.id
-                ? `oklch(${opt.color.replace("oklch(", "").split(")")[0]} / 0.15)`
-                : "oklch(0.15 0.05 285 / 0.6)",
+              background:
+                selectedMethod === opt.id
+                  ? `oklch(${opt.color.replace("oklch(", "").split(")")[0]} / 0.15)`
+                  : "oklch(0.15 0.05 285 / 0.6)",
               border: `1px solid ${selectedMethod === opt.id ? opt.color : "oklch(0.3 0.08 285)"}`,
-              color: selectedMethod === opt.id ? opt.color : "oklch(0.6 0.04 285)",
+              color:
+                selectedMethod === opt.id ? opt.color : "oklch(0.6 0.04 285)",
             }}
           >
             <span style={{ color: opt.color }}>{opt.icon}</span>
             {opt.label}
             {selectedMethod === opt.id && (
-              <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" style={{ color: opt.color }} />
+              <CheckCircle2
+                className="w-3.5 h-3.5 ml-auto shrink-0"
+                style={{ color: opt.color }}
+              />
             )}
           </button>
         ))}
@@ -1081,11 +1399,17 @@ function MembershipCheckout({
       {selectedMethod && address && (
         <div
           className="rounded-lg p-3 mb-3"
-          style={{ background: "oklch(0.08 0.04 285)", border: `1px solid ${selectedOpt?.color ?? "oklch(0.3 0.08 285)"} / 0.25)` }}
+          style={{
+            background: "oklch(0.08 0.04 285)",
+            border: `1px solid ${selectedOpt?.color ?? "oklch(0.3 0.08 285)"} / 0.25)`,
+          }}
         >
           {selectedOpt?.isCrypto ? (
             <div className="flex items-center gap-2">
-              <code className="font-body text-xs break-all flex-1" style={{ color: selectedOpt?.color }}>
+              <code
+                className="font-body text-xs break-all flex-1"
+                style={{ color: selectedOpt?.color }}
+              >
                 {address}
               </code>
               <button
@@ -1093,14 +1417,20 @@ function MembershipCheckout({
                 onClick={() => handleCopy(address, "addr")}
                 className="shrink-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors"
               >
-                {copiedField === "addr"
-                  ? <ClipboardCheck className="w-4 h-4" style={{ color: "oklch(0.65 0.2 145)" }} />
-                  : <Copy className="w-4 h-4 text-foreground/40" />
-                }
+                {copiedField === "addr" ? (
+                  <ClipboardCheck
+                    className="w-4 h-4"
+                    style={{ color: "oklch(0.65 0.2 145)" }}
+                  />
+                ) : (
+                  <Copy className="w-4 h-4 text-foreground/40" />
+                )}
               </button>
             </div>
           ) : (
-            <p className="font-body text-xs text-foreground/70 leading-relaxed">{address}</p>
+            <p className="font-body text-xs text-foreground/70 leading-relaxed">
+              {address}
+            </p>
           )}
         </div>
       )}
@@ -1111,21 +1441,37 @@ function MembershipCheckout({
           onClick={() => handleCopy(address, "addr-btn")}
           className="w-full flex items-center justify-center gap-2 rounded-lg py-2.5 mb-3 font-body font-semibold text-sm transition-all"
           style={{
-            background: copiedField === "addr-btn" ? "oklch(0.55 0.2 145 / 0.15)" : `oklch(${(selectedOpt?.color ?? "oklch(0.6 0.15 285)").replace("oklch(", "").split(")")[0]} / 0.12)`,
+            background:
+              copiedField === "addr-btn"
+                ? "oklch(0.55 0.2 145 / 0.15)"
+                : `oklch(${(selectedOpt?.color ?? "oklch(0.6 0.15 285)").replace("oklch(", "").split(")")[0]} / 0.12)`,
             border: `1.5px solid ${copiedField === "addr-btn" ? "oklch(0.55 0.2 145 / 0.5)" : `oklch(${(selectedOpt?.color ?? "oklch(0.6 0.15 285)").replace("oklch(", "").split(")")[0]} / 0.4)`}`,
-            color: copiedField === "addr-btn" ? "oklch(0.65 0.2 145)" : selectedOpt?.color,
+            color:
+              copiedField === "addr-btn"
+                ? "oklch(0.65 0.2 145)"
+                : selectedOpt?.color,
           }}
         >
-          {copiedField === "addr-btn" ? <ClipboardCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-          {copiedField === "addr-btn" ? "Copied!" : `Copy ${selectedMethod === "paypal" ? "PayPal Username" : selectedMethod === "bitcoin" ? "Bitcoin Address" : "Ethereum Address"}`}
+          {copiedField === "addr-btn" ? (
+            <ClipboardCheck className="w-4 h-4" />
+          ) : (
+            <Copy className="w-4 h-4" />
+          )}
+          {copiedField === "addr-btn"
+            ? "Copied!"
+            : `Copy ${selectedMethod === "paypal" ? "PayPal Username" : selectedMethod === "bitcoin" ? "Bitcoin Address" : "Ethereum Address"}`}
         </button>
       )}
 
       {/* Payment reference */}
       {selectedMethod && (
         <div className="mb-4">
-          <label htmlFor="membership-payment-ref" className="font-body text-xs text-foreground/50 uppercase tracking-wider mb-1.5 block">
-            Payment Reference <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
+          <label
+            htmlFor="membership-payment-ref"
+            className="font-body text-xs text-foreground/50 uppercase tracking-wider mb-1.5 block"
+          >
+            Payment Reference{" "}
+            <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
           </label>
           <input
             id="membership-payment-ref"
@@ -1145,16 +1491,24 @@ function MembershipCheckout({
       <Button
         className="w-full font-body font-bold text-sm"
         style={{
-          background: "linear-gradient(135deg, oklch(0.7 0.2 75), oklch(0.78 0.18 90))",
+          background:
+            "linear-gradient(135deg, oklch(0.7 0.2 75), oklch(0.78 0.18 90))",
           color: "oklch(0.12 0.04 285)",
         }}
         onClick={() => void handlePurchase()}
         disabled={isPlacing || !selectedMethod || !paymentRef.trim()}
       >
-        {isPlacing
-          ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
-          : <><Crown className="w-4 h-4 mr-2" />Confirm Purchase — £0.05</>
-        }
+        {isPlacing ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <Crown className="w-4 h-4 mr-2" />
+            Confirm Purchase — £0.05
+          </>
+        )}
       </Button>
     </div>
   );
@@ -1167,10 +1521,21 @@ interface PromoteModalProps {
   open: boolean;
   onClose: () => void;
   userProfile: { username: string; email: string } | null;
-  onSubmit?: (submitterUsername: string, promotionType: string, link: string, description: string, imageUrl: string) => Promise<bigint>;
+  onSubmit?: (
+    submitterUsername: string,
+    promotionType: string,
+    link: string,
+    description: string,
+    imageUrl: string,
+  ) => Promise<bigint>;
 }
 
-function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProps) {
+function PromoteModal({
+  open,
+  onClose,
+  userProfile,
+  onSubmit,
+}: PromoteModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [promotionType, setPromotionType] = useState<PromotionType>(null);
   const [link, setLink] = useState("");
@@ -1195,14 +1560,32 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
   };
 
   const handleSubmit = async () => {
-    if (!link.trim()) { toast.error("Link is required"); return; }
-    if (!description.trim()) { toast.error("Description is required"); return; }
-    if (!userProfile) { toast.error("Please login first"); return; }
-    if (!onSubmit) { toast.error("Submission not available"); return; }
+    if (!link.trim()) {
+      toast.error("Link is required");
+      return;
+    }
+    if (!description.trim()) {
+      toast.error("Description is required");
+      return;
+    }
+    if (!userProfile) {
+      toast.error("Please login first");
+      return;
+    }
+    if (!onSubmit) {
+      toast.error("Submission not available");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      await onSubmit(userProfile.username, promotionType ?? "business", link.trim(), description.trim(), imageUrl.trim());
+      await onSubmit(
+        userProfile.username,
+        promotionType ?? "business",
+        link.trim(),
+        description.trim(),
+        imageUrl.trim(),
+      );
       setSubmitted(true);
     } catch (err) {
       console.error(err);
@@ -1213,29 +1596,52 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) handleClose();
+      }}
+    >
       <DialogContent
         className="font-body max-w-md"
-        style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.62 0.27 355 / 0.35)" }}
+        style={{
+          background: "oklch(0.13 0.05 285)",
+          border: "1px solid oklch(0.62 0.27 355 / 0.35)",
+        }}
       >
         <DialogHeader>
           <DialogTitle className="font-display text-xl text-white flex items-center gap-2">
-            <Megaphone className="w-5 h-5" style={{ color: "oklch(0.7 0.22 45)" }} />
+            <Megaphone
+              className="w-5 h-5"
+              style={{ color: "oklch(0.7 0.22 45)" }}
+            />
             Promote Your Business / Channel
           </DialogTitle>
         </DialogHeader>
 
         {submitted ? (
-          <div className="py-8 text-center space-y-3" style={{ animation: "scale-in 0.3s ease-out both" }}>
+          <div
+            className="py-8 text-center space-y-3"
+            style={{ animation: "scale-in 0.3s ease-out both" }}
+          >
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
-              style={{ background: "oklch(0.55 0.2 145 / 0.15)", border: "2px solid oklch(0.55 0.2 145 / 0.5)" }}
+              style={{
+                background: "oklch(0.55 0.2 145 / 0.15)",
+                border: "2px solid oklch(0.55 0.2 145 / 0.5)",
+              }}
             >
-              <CheckCircle className="w-8 h-8" style={{ color: "oklch(0.65 0.2 145)" }} />
+              <CheckCircle
+                className="w-8 h-8"
+                style={{ color: "oklch(0.65 0.2 145)" }}
+              />
             </div>
-            <p className="font-body font-bold text-foreground text-base">Request Submitted!</p>
+            <p className="font-body font-bold text-foreground text-base">
+              Request Submitted!
+            </p>
             <p className="text-foreground/60 font-body text-sm px-4">
-              Your promotion request has been submitted! We'll review it shortly.
+              Your promotion request has been submitted! We'll review it
+              shortly.
             </p>
             <Button
               className="mt-2 font-body font-semibold"
@@ -1262,25 +1668,36 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
                   color: "oklch(0.8 0.18 25)",
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.65 0.25 25 / 0.2)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.65 0.25 25 / 0.6)";
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px oklch(0.65 0.25 25 / 0.2)";
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "oklch(0.65 0.25 25 / 0.2)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "oklch(0.65 0.25 25 / 0.6)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                    "0 0 20px oklch(0.65 0.25 25 / 0.2)";
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.65 0.25 25 / 0.1)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.65 0.25 25 / 0.3)";
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "oklch(0.65 0.25 25 / 0.1)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "oklch(0.65 0.25 25 / 0.3)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                    "none";
                 }}
               >
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center"
                   style={{ background: "oklch(0.65 0.25 25 / 0.2)" }}
                 >
-                  <Youtube className="w-6 h-6" style={{ color: "oklch(0.7 0.25 25)" }} />
+                  <Youtube
+                    className="w-6 h-6"
+                    style={{ color: "oklch(0.7 0.25 25)" }}
+                  />
                 </div>
                 <div>
                   <p className="font-body font-bold text-sm">YouTube Channel</p>
-                  <p className="font-body text-xs text-foreground/50 mt-0.5">Share your channel</p>
+                  <p className="font-body text-xs text-foreground/50 mt-0.5">
+                    Share your channel
+                  </p>
                 </div>
               </button>
 
@@ -1295,25 +1712,36 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
                   color: "oklch(0.75 0.18 240)",
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.55 0.2 240 / 0.2)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.55 0.2 240 / 0.6)";
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px oklch(0.55 0.2 240 / 0.2)";
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "oklch(0.55 0.2 240 / 0.2)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "oklch(0.55 0.2 240 / 0.6)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                    "0 0 20px oklch(0.55 0.2 240 / 0.2)";
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.55 0.2 240 / 0.1)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "oklch(0.55 0.2 240 / 0.3)";
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "oklch(0.55 0.2 240 / 0.1)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "oklch(0.55 0.2 240 / 0.3)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                    "none";
                 }}
               >
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center"
                   style={{ background: "oklch(0.55 0.2 240 / 0.2)" }}
                 >
-                  <Building2 className="w-6 h-6" style={{ color: "oklch(0.65 0.2 240)" }} />
+                  <Building2
+                    className="w-6 h-6"
+                    style={{ color: "oklch(0.65 0.2 240)" }}
+                  />
                 </div>
                 <div>
                   <p className="font-body font-bold text-sm">Business</p>
-                  <p className="font-body text-xs text-foreground/50 mt-0.5">Promote your brand</p>
+                  <p className="font-body text-xs text-foreground/50 mt-0.5">
+                    Promote your brand
+                  </p>
                 </div>
               </button>
             </div>
@@ -1334,24 +1762,41 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
             <div
               className="flex items-center gap-2 px-3 py-2 rounded-lg"
               style={{
-                background: promotionType === "youtube" ? "oklch(0.65 0.25 25 / 0.1)" : "oklch(0.55 0.2 240 / 0.1)",
+                background:
+                  promotionType === "youtube"
+                    ? "oklch(0.65 0.25 25 / 0.1)"
+                    : "oklch(0.55 0.2 240 / 0.1)",
                 border: `1px solid ${promotionType === "youtube" ? "oklch(0.65 0.25 25 / 0.3)" : "oklch(0.55 0.2 240 / 0.3)"}`,
               }}
             >
-              {promotionType === "youtube"
-                ? <Youtube className="w-4 h-4 shrink-0" style={{ color: "oklch(0.7 0.25 25)" }} />
-                : <Building2 className="w-4 h-4 shrink-0" style={{ color: "oklch(0.65 0.2 240)" }} />
-              }
+              {promotionType === "youtube" ? (
+                <Youtube
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "oklch(0.7 0.25 25)" }}
+                />
+              ) : (
+                <Building2
+                  className="w-4 h-4 shrink-0"
+                  style={{ color: "oklch(0.65 0.2 240)" }}
+                />
+              )}
               <span className="font-body font-semibold text-sm text-foreground/80">
-                {promotionType === "youtube" ? "YouTube Channel Promotion" : "Business Promotion"}
+                {promotionType === "youtube"
+                  ? "YouTube Channel Promotion"
+                  : "Business Promotion"}
               </span>
             </div>
 
             {/* Link */}
             <div className="space-y-1.5">
-              <label htmlFor="promo-link" className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5">
+              <label
+                htmlFor="promo-link"
+                className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5"
+              >
                 <Link2 className="w-3.5 h-3.5" />
-                {promotionType === "youtube" ? "YouTube Channel URL" : "Business Website URL"}
+                {promotionType === "youtube"
+                  ? "YouTube Channel URL"
+                  : "Business Website URL"}
                 <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
               </label>
               <input
@@ -1359,20 +1804,32 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
                 type="url"
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
-                placeholder={promotionType === "youtube" ? "https://youtube.com/@yourchannel" : "https://yourbusiness.com"}
+                placeholder={
+                  promotionType === "youtube"
+                    ? "https://youtube.com/@yourchannel"
+                    : "https://yourbusiness.com"
+                }
                 className="w-full px-3 py-2.5 rounded-lg font-body text-sm text-foreground placeholder:text-foreground/30 outline-none transition-all"
                 style={{
                   background: "oklch(0.15 0.05 285)",
                   border: "1px solid oklch(0.3 0.08 285)",
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.62 0.27 355 / 0.6)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)"; }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor =
+                    "oklch(0.62 0.27 355 / 0.6)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)";
+                }}
               />
             </div>
 
             {/* Description */}
             <div className="space-y-1.5">
-              <label htmlFor="promo-description" className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5">
+              <label
+                htmlFor="promo-description"
+                className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5"
+              >
                 <FileText className="w-3.5 h-3.5" />
                 Describe what you want promoted
                 <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
@@ -1388,14 +1845,22 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
                   background: "oklch(0.15 0.05 285)",
                   border: "1px solid oklch(0.3 0.08 285)",
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.62 0.27 355 / 0.6)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)"; }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor =
+                    "oklch(0.62 0.27 355 / 0.6)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)";
+                }}
               />
             </div>
 
             {/* Image URL (optional) */}
             <div className="space-y-1.5">
-              <label htmlFor="promo-image" className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5">
+              <label
+                htmlFor="promo-image"
+                className="font-body text-xs text-foreground/50 uppercase tracking-wider flex items-center gap-1.5"
+              >
                 <Image className="w-3.5 h-3.5" />
                 Image URL (optional)
               </label>
@@ -1410,8 +1875,13 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
                   background: "oklch(0.15 0.05 285)",
                   border: "1px solid oklch(0.3 0.08 285)",
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "oklch(0.62 0.27 355 / 0.6)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)"; }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor =
+                    "oklch(0.62 0.27 355 / 0.6)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "oklch(0.3 0.08 285)";
+                }}
               />
             </div>
 
@@ -1419,17 +1889,25 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
             <Button
               className="w-full font-body font-bold text-sm"
               style={{
-                background: "linear-gradient(135deg, oklch(0.62 0.27 355), oklch(0.55 0.2 295))",
+                background:
+                  "linear-gradient(135deg, oklch(0.62 0.27 355), oklch(0.55 0.2 295))",
                 color: "white",
                 boxShadow: "0 0 20px oklch(0.62 0.27 355 / 0.3)",
               }}
               onClick={() => void handleSubmit()}
               disabled={isSubmitting || !link.trim() || !description.trim()}
             >
-              {isSubmitting
-                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
-                : <><Megaphone className="w-4 h-4 mr-2" />Submit Promotion Request</>
-              }
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Megaphone className="w-4 h-4 mr-2" />
+                  Submit Promotion Request
+                </>
+              )}
             </Button>
           </div>
         )}
@@ -1438,14 +1916,20 @@ function PromoteModal({ open, onClose, userProfile, onSubmit }: PromoteModalProp
   );
 }
 
-function EmptyState({ icon, title, description }: { icon: string; title: string; description: string }) {
+function EmptyState({
+  icon,
+  title,
+  description,
+}: { icon: string; title: string; description: string }) {
   return (
     <div
       className="glass-card p-12 text-center"
       style={{ animation: "fade-in 0.5s ease-out both" }}
     >
       <div className="text-6xl mb-4">{icon}</div>
-      <h3 className="font-body font-bold text-foreground text-lg mb-2">{title}</h3>
+      <h3 className="font-body font-bold text-foreground text-lg mb-2">
+        {title}
+      </h3>
       <p className="text-foreground/50 font-body text-sm">{description}</p>
     </div>
   );

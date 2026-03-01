@@ -1,17 +1,17 @@
-import { useEffect, useState } from "react";
+import type { UserProfile } from "@/backend.d";
+import type { Page } from "@/types";
 import {
-  ShoppingBag,
-  UserCircle,
+  Car,
+  ChevronRight,
+  Code,
   LogIn,
   LogOut,
   Shield,
+  ShoppingBag,
+  UserCircle,
   X,
-  ChevronRight,
-  Car,
-  Code,
 } from "lucide-react";
-import type { Page } from "@/types";
-import type { UserProfile } from "@/backend.d";
+import { useEffect, useState } from "react";
 
 interface AuroraMenuProps {
   isOpen: boolean;
@@ -50,7 +50,10 @@ export function AuroraMenu({
       id: "store",
       label: "Store",
       icon: <ShoppingBag className="w-5 h-5" />,
-      onClick: () => { onNavigate("store"); onClose(); },
+      onClick: () => {
+        onNavigate("store");
+        onClose();
+      },
       accentColor: "oklch(0.62 0.27 355)",
       isActive: currentPage === "store",
       visible: true,
@@ -63,7 +66,9 @@ export function AuroraMenu({
         onNavigate("store");
         onClose();
         setTimeout(() => {
-          document.getElementById("cpm-services")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          document
+            .getElementById("cpm-services")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 200);
       },
       accentColor: "oklch(0.72 0.25 25)",
@@ -78,7 +83,9 @@ export function AuroraMenu({
         onNavigate("store");
         onClose();
         setTimeout(() => {
-          document.getElementById("cpm-lua-scripts")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          document
+            .getElementById("cpm-lua-scripts")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 200);
       },
       accentColor: "oklch(0.75 0.18 190)",
@@ -89,7 +96,10 @@ export function AuroraMenu({
       id: "profile",
       label: "My Profile",
       icon: <UserCircle className="w-5 h-5" />,
-      onClick: () => { onNavigate("dashboard"); onClose(); },
+      onClick: () => {
+        onNavigate("dashboard");
+        onClose();
+      },
       accentColor: "oklch(0.72 0.22 330)",
       isActive: currentPage === "dashboard",
       visible: !!userProfile,
@@ -98,7 +108,10 @@ export function AuroraMenu({
       id: "login",
       label: "Login",
       icon: <LogIn className="w-5 h-5" />,
-      onClick: () => { onNavigate("auth"); onClose(); },
+      onClick: () => {
+        onNavigate("auth");
+        onClose();
+      },
       accentColor: "oklch(0.75 0.18 55)",
       isActive: currentPage === "auth",
       visible: !userProfile,
@@ -107,7 +120,10 @@ export function AuroraMenu({
       id: "signout",
       label: "Sign Out",
       icon: <LogOut className="w-5 h-5" />,
-      onClick: () => { onLogout(); onClose(); },
+      onClick: () => {
+        onLogout();
+        onClose();
+      },
       accentColor: "oklch(0.65 0.20 25)",
       isActive: false,
       visible: !!userProfile,
@@ -116,7 +132,10 @@ export function AuroraMenu({
       id: "admin",
       label: "Admin Panel",
       icon: <Shield className="w-5 h-5" />,
-      onClick: () => { onAdminClick(); onClose(); },
+      onClick: () => {
+        onAdminClick();
+        onClose();
+      },
       accentColor: "oklch(0.75 0.18 55)",
       isActive: currentPage === "admin",
       visible: true,
@@ -131,20 +150,22 @@ export function AuroraMenu({
       setMounted(true);
       setBladesVisible(new Array(bladeCount).fill(false));
       const timers = Array.from({ length: bladeCount }, (_, i) =>
-        setTimeout(() => {
-          setBladesVisible((prev) => {
-            const next = [...prev];
-            next[i] = true;
-            return next;
-          });
-        }, 80 + i * 80)
+        setTimeout(
+          () => {
+            setBladesVisible((prev) => {
+              const next = [...prev];
+              next[i] = true;
+              return next;
+            });
+          },
+          80 + i * 80,
+        ),
       );
       return () => timers.forEach(clearTimeout);
-    } else {
-      setBladesVisible([]);
-      const timer = setTimeout(() => setMounted(false), 300);
-      return () => clearTimeout(timer);
     }
+    setBladesVisible([]);
+    const timer = setTimeout(() => setMounted(false), 300);
+    return () => clearTimeout(timer);
   }, [isOpen, bladeCount]);
 
   if (!mounted) return null;
@@ -182,7 +203,8 @@ export function AuroraMenu({
           background: "oklch(0.10 0.05 285 / 0.96)",
           backdropFilter: "blur(24px)",
           borderLeft: "1px solid oklch(0.62 0.27 355 / 0.25)",
-          boxShadow: "-8px 0 40px oklch(0.62 0.27 355 / 0.15), -2px 0 0 oklch(0.62 0.27 355 / 0.3)",
+          boxShadow:
+            "-8px 0 40px oklch(0.62 0.27 355 / 0.15), -2px 0 0 oklch(0.62 0.27 355 / 0.3)",
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
           transition: "transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
           display: "flex",
@@ -338,27 +360,30 @@ function AuroraBlade({
         background: blade.isActive
           ? `${blade.accentColor.replace(")", " / 0.12)").replace("oklch(", "oklch(")}`
           : hovered
-          ? "oklch(0.15 0.04 285)"
-          : "transparent",
+            ? "oklch(0.15 0.04 285)"
+            : "transparent",
         borderBottom: "1px solid oklch(0.62 0.27 355 / 0.08)",
-        borderLeft: blade.isActive || hovered
-          ? `4px solid ${blade.accentColor}`
-          : "4px solid transparent",
+        borderLeft:
+          blade.isActive || hovered
+            ? `4px solid ${blade.accentColor}`
+            : "4px solid transparent",
         cursor: "pointer",
         textAlign: "left",
         transition: "all 180ms ease",
         transform: visible ? "translateX(0)" : "translateX(40px)",
         opacity: visible ? 1 : 0,
-        boxShadow:
-          hovered
-            ? `inset 0 0 20px ${blade.accentColor.replace(")", " / 0.08)").replace("oklch(", "oklch(")}`
-            : "none",
+        boxShadow: hovered
+          ? `inset 0 0 20px ${blade.accentColor.replace(")", " / 0.08)").replace("oklch(", "oklch(")}`
+          : "none",
       }}
     >
       {/* Icon */}
       <span
         style={{
-          color: blade.isActive || hovered ? blade.accentColor : "oklch(0.55 0.04 285)",
+          color:
+            blade.isActive || hovered
+              ? blade.accentColor
+              : "oklch(0.55 0.04 285)",
           textShadow: hovered ? `0 0 10px ${blade.accentColor}` : "none",
           transition: "all 180ms ease",
           flexShrink: 0,
@@ -377,14 +402,14 @@ function AuroraBlade({
           color: blade.isActive
             ? blade.accentColor
             : hovered
-            ? "oklch(0.92 0.02 285)"
-            : "oklch(0.72 0.04 285)",
+              ? "oklch(0.92 0.02 285)"
+              : "oklch(0.72 0.04 285)",
           letterSpacing: "0.02em",
           textShadow: blade.isActive
             ? `0 0 12px ${blade.accentColor}`
             : hovered
-            ? `0 0 8px ${blade.accentColor}`
-            : "none",
+              ? `0 0 8px ${blade.accentColor}`
+              : "none",
           transition: "all 180ms ease",
         }}
       >

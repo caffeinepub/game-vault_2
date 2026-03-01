@@ -1,23 +1,72 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import type {
+  Ad,
+  Package as BackendPackage,
+  Coupon,
+  Membership,
+  Order,
+  PaymentSettings,
+  Product,
+  PromotionRequest,
+} from "@/backend.d";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, Shield, ShieldCheck, Package, ShoppingBag,
-  CreditCard, Plus, Trash2, Edit, Check, X, ChevronRight,
-  ArrowLeft, Save, Tag, ToggleLeft, ToggleRight, Mail, Paperclip, Upload, FileCode, FileArchive,
-  Megaphone, Users, Image, AlignLeft, ExternalLink, Globe, Youtube, Building2, Copy, ClipboardCheck,
-  TrendingUp
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlignLeft,
+  ArrowLeft,
+  Building2,
+  Check,
+  ChevronRight,
+  ClipboardCheck,
+  Copy,
+  CreditCard,
+  Edit,
+  ExternalLink,
+  FileArchive,
+  FileCode,
+  Globe,
+  Image,
+  Loader2,
+  Mail,
+  Megaphone,
+  Package,
+  Paperclip,
+  Plus,
+  Save,
+  Shield,
+  ShieldCheck,
+  ShoppingBag,
+  Tag,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  TrendingUp,
+  Upload,
+  Users,
+  X,
+  Youtube,
 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { Product, Package as BackendPackage, Order, PaymentSettings, Coupon, Ad, Membership, PromotionRequest } from "@/backend.d";
 
 interface ProductFileInfo {
   fileName: string;
@@ -32,28 +81,89 @@ interface AdminPageProps {
   backend: {
     isCallerAdmin: () => Promise<boolean>;
     listAvailableProducts: () => Promise<Product[]>;
-    createProduct: (name: string, desc: string, price: bigint, cat: string, imageUrl: string) => Promise<bigint>;
-    updateProduct: (id: bigint, name: string, desc: string, price: bigint, cat: string, imageUrl: string, avail: boolean) => Promise<void>;
+    createProduct: (
+      name: string,
+      desc: string,
+      price: bigint,
+      cat: string,
+      imageUrl: string,
+    ) => Promise<bigint>;
+    updateProduct: (
+      id: bigint,
+      name: string,
+      desc: string,
+      price: bigint,
+      cat: string,
+      imageUrl: string,
+      avail: boolean,
+    ) => Promise<void>;
     deleteProduct: (id: bigint) => Promise<void>;
     listActivePackages: () => Promise<BackendPackage[]>;
-    createPackage: (name: string, desc: string, price: bigint, features: string[]) => Promise<bigint>;
-    updatePackage: (id: bigint, name: string, desc: string, price: bigint, features: string[], active: boolean) => Promise<void>;
+    createPackage: (
+      name: string,
+      desc: string,
+      price: bigint,
+      features: string[],
+    ) => Promise<bigint>;
+    updatePackage: (
+      id: bigint,
+      name: string,
+      desc: string,
+      price: bigint,
+      features: string[],
+      active: boolean,
+    ) => Promise<void>;
     deletePackage: (id: bigint) => Promise<void>;
     listAllOrders: () => Promise<Array<[string, Order[]]>>;
-    updateOrderStatus: (username: string, orderId: bigint, status: string) => Promise<void>;
+    updateOrderStatus: (
+      username: string,
+      orderId: bigint,
+      status: string,
+    ) => Promise<void>;
     getPaymentSettings: () => Promise<PaymentSettings | null>;
     savePaymentSettings: (settings: PaymentSettings) => Promise<void>;
     listAllCoupons: () => Promise<Coupon[]>;
-    createCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) => Promise<void>;
-    updateCoupon: (code: string, type: string, value: bigint, maxUses: bigint, isActive: boolean) => Promise<void>;
+    createCoupon: (
+      code: string,
+      type: string,
+      value: bigint,
+      maxUses: bigint,
+      isActive: boolean,
+    ) => Promise<void>;
+    updateCoupon: (
+      code: string,
+      type: string,
+      value: bigint,
+      maxUses: bigint,
+      isActive: boolean,
+    ) => Promise<void>;
     deleteCoupon: (code: string) => Promise<void>;
-    attachFileToProduct: (productId: bigint, fileName: string, fileType: string, fileData: Uint8Array) => Promise<bigint>;
+    attachFileToProduct: (
+      productId: bigint,
+      fileName: string,
+      fileType: string,
+      fileData: Uint8Array,
+    ) => Promise<bigint>;
     removeFileFromProduct: (productId: bigint, fileId: bigint) => Promise<void>;
     listProductFilesAdmin: (productId: bigint) => Promise<ProductFileInfo[]>;
     // Ads
     listAllAds: () => Promise<Ad[]>;
-    createAd: (adType: string, title: string, desc: string, imageUrl: string, linkUrl: string) => Promise<bigint>;
-    updateAd: (id: bigint, adType: string, title: string, desc: string, imageUrl: string, linkUrl: string, isActive: boolean) => Promise<void>;
+    createAd: (
+      adType: string,
+      title: string,
+      desc: string,
+      imageUrl: string,
+      linkUrl: string,
+    ) => Promise<bigint>;
+    updateAd: (
+      id: bigint,
+      adType: string,
+      title: string,
+      desc: string,
+      imageUrl: string,
+      linkUrl: string,
+      isActive: boolean,
+    ) => Promise<void>;
     deleteAd: (id: bigint) => Promise<void>;
     // Memberships
     listAllMemberships: () => Promise<Membership[]>;
@@ -63,7 +173,15 @@ interface AdminPageProps {
   };
 }
 
-type AdminTab = "orders" | "products" | "subscriptions" | "payments" | "coupons" | "ads" | "memberships" | "promotions";
+type AdminTab =
+  | "orders"
+  | "products"
+  | "subscriptions"
+  | "payments"
+  | "coupons"
+  | "ads"
+  | "memberships"
+  | "promotions";
 type PinState = "idle" | "entered" | "verified" | "denied";
 
 const CORRECT_PIN = "2006";
@@ -73,21 +191,41 @@ function formatPrice(pricePence: bigint): string {
 }
 
 function parsePriceToPence(str: string): bigint {
-  const parsed = Math.round(parseFloat(str) * 100);
-  return BigInt(isNaN(parsed) ? 0 : parsed);
+  const parsed = Math.round(Number.parseFloat(str) * 100);
+  return BigInt(Number.isNaN(parsed) ? 0 : parsed);
 }
 
 function StatusBadge({ status }: { status: string }) {
   const cfg = {
-    pending: { bg: "oklch(0.7 0.18 85 / 0.15)", color: "oklch(0.85 0.19 85)", border: "oklch(0.7 0.18 85 / 0.4)" },
-    accepted: { bg: "oklch(0.55 0.2 145 / 0.15)", color: "oklch(0.65 0.2 145)", border: "oklch(0.55 0.2 145 / 0.4)" },
-    declined: { bg: "oklch(0.65 0.25 25 / 0.15)", color: "oklch(0.7 0.25 25)", border: "oklch(0.65 0.25 25 / 0.4)" },
-  }[status.toLowerCase()] ?? { bg: "oklch(0.2 0.04 285 / 0.3)", color: "oklch(0.5 0.04 285)", border: "oklch(0.3 0.04 285)" };
+    pending: {
+      bg: "oklch(0.7 0.18 85 / 0.15)",
+      color: "oklch(0.85 0.19 85)",
+      border: "oklch(0.7 0.18 85 / 0.4)",
+    },
+    accepted: {
+      bg: "oklch(0.55 0.2 145 / 0.15)",
+      color: "oklch(0.65 0.2 145)",
+      border: "oklch(0.55 0.2 145 / 0.4)",
+    },
+    declined: {
+      bg: "oklch(0.65 0.25 25 / 0.15)",
+      color: "oklch(0.7 0.25 25)",
+      border: "oklch(0.65 0.25 25 / 0.4)",
+    },
+  }[status.toLowerCase()] ?? {
+    bg: "oklch(0.2 0.04 285 / 0.3)",
+    color: "oklch(0.5 0.04 285)",
+    border: "oklch(0.3 0.04 285)",
+  };
 
   return (
     <span
       className="px-2 py-0.5 rounded-full font-body text-xs font-semibold"
-      style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
+      style={{
+        background: cfg.bg,
+        color: cfg.color,
+        border: `1px solid ${cfg.border}`,
+      }}
     >
       {status}
     </span>
@@ -95,7 +233,10 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // ---- PIN Gate ----
-function PinGate({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
+function PinGate({
+  onSuccess,
+  onCancel,
+}: { onSuccess: () => void; onCancel: () => void }) {
   const [pin, setPin] = useState("");
   const [pinState, setPinState] = useState<PinState>("idle");
 
@@ -118,23 +259,36 @@ function PinGate({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () 
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
           style={{
-            background: pinState === "denied"
-              ? "oklch(0.65 0.25 25 / 0.2)"
-              : "oklch(0.62 0.27 355 / 0.15)",
+            background:
+              pinState === "denied"
+                ? "oklch(0.65 0.25 25 / 0.2)"
+                : "oklch(0.62 0.27 355 / 0.15)",
             border: `2px solid ${pinState === "denied" ? "oklch(0.65 0.25 25 / 0.5)" : "oklch(0.62 0.27 355 / 0.4)"}`,
           }}
         >
-          {pinState === "denied"
-            ? <Shield className="w-7 h-7" style={{ color: "oklch(0.7 0.25 25)" }} />
-            : <ShieldCheck className="w-7 h-7" style={{ color: "oklch(0.62 0.27 355)" }} />
-          }
+          {pinState === "denied" ? (
+            <Shield
+              className="w-7 h-7"
+              style={{ color: "oklch(0.7 0.25 25)" }}
+            />
+          ) : (
+            <ShieldCheck
+              className="w-7 h-7"
+              style={{ color: "oklch(0.62 0.27 355)" }}
+            />
+          )}
         </div>
 
         <h2 className="font-display text-2xl text-white mb-2">Admin Panel</h2>
-        <p className="text-foreground/50 font-body text-sm mb-6">Enter your PIN to continue</p>
+        <p className="text-foreground/50 font-body text-sm mb-6">
+          Enter your PIN to continue
+        </p>
 
         {pinState === "denied" && (
-          <p className="text-sm font-body mb-4" style={{ color: "oklch(0.7 0.25 25)" }}>
+          <p
+            className="text-sm font-body mb-4"
+            style={{ color: "oklch(0.7 0.25 25)" }}
+          >
             Incorrect PIN. Please try again.
           </p>
         )}
@@ -143,12 +297,21 @@ function PinGate({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () 
           <Input
             type="password"
             value={pin}
-            onChange={(e) => { setPin(e.target.value); setPinState("idle"); }}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+            onChange={(e) => {
+              setPin(e.target.value);
+              setPinState("idle");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSubmit();
+            }}
             placeholder="Enter PIN"
             maxLength={4}
             className="text-center text-2xl tracking-widest font-body"
-            style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }}
+            style={{
+              background: "oklch(0.15 0.05 285)",
+              borderColor: "oklch(0.3 0.08 285)",
+              color: "white",
+            }}
           />
 
           <Button
@@ -192,9 +355,15 @@ function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
     }
   }, [backend]);
 
-  useEffect(() => { void loadOrders(); }, [loadOrders]);
+  useEffect(() => {
+    void loadOrders();
+  }, [loadOrders]);
 
-  const handleStatus = async (username: string, orderId: bigint, status: string) => {
+  const handleStatus = async (
+    username: string,
+    orderId: bigint,
+    status: string,
+  ) => {
     const key = `${username}-${orderId.toString()}`;
     setUpdatingId(key);
     try {
@@ -209,15 +378,21 @@ function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
     }
   };
 
-  const allOrdersFlat = allOrders.flatMap(([username, orders]) =>
-    orders.map((o) => ({ ...o, customerUsername: username }))
-  ).sort((a, b) => Number(b.timestamp - a.timestamp));
+  const allOrdersFlat = allOrders
+    .flatMap(([username, orders]) =>
+      orders.map((o) => ({ ...o, customerUsername: username })),
+    )
+    .sort((a, b) => Number(b.timestamp - a.timestamp));
 
   if (isLoading) {
     return (
       <div className="space-y-3">
         {(["a", "b", "c"] as const).map((sk) => (
-          <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+          <Skeleton
+            key={sk}
+            className="h-16 w-full"
+            style={{ background: "oklch(0.18 0.04 285)" }}
+          />
         ))}
       </div>
     );
@@ -242,7 +417,9 @@ function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="font-body font-semibold text-foreground text-sm truncate">{order.itemName}</span>
+                  <span className="font-body font-semibold text-foreground text-sm truncate">
+                    {order.itemName}
+                  </span>
                   <StatusBadge status={order.status} />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-body text-foreground/50">
@@ -258,9 +435,14 @@ function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
                       {order.deliveryEmail}
                     </a>
                   )}
-                  <span style={{ color: "oklch(0.85 0.19 85)" }}>{formatPrice(order.price)}</span>
+                  <span style={{ color: "oklch(0.85 0.19 85)" }}>
+                    {formatPrice(order.price)}
+                  </span>
                   <span>💳 {order.paymentMethod}</span>
-                  <span className="font-mono text-foreground/40 max-w-32 truncate" title={order.paymentReference}>
+                  <span
+                    className="font-mono text-foreground/40 max-w-32 truncate"
+                    title={order.paymentReference}
+                  >
                     Ref: {order.paymentReference}
                   </span>
                 </div>
@@ -270,22 +452,48 @@ function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
                 <div className="flex items-center gap-2 shrink-0">
                   <Button
                     size="sm"
-                    onClick={() => handleStatus(order.customerUsername, order.orderId, "accepted")}
+                    onClick={() =>
+                      handleStatus(
+                        order.customerUsername,
+                        order.orderId,
+                        "accepted",
+                      )
+                    }
                     disabled={updatingId === key}
                     className="font-body font-semibold text-white text-xs"
-                    style={{ background: "oklch(0.55 0.2 145)", boxShadow: "none" }}
+                    style={{
+                      background: "oklch(0.55 0.2 145)",
+                      boxShadow: "none",
+                    }}
                   >
-                    {updatingId === key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    {updatingId === key ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
                     <span className="ml-1">Accept</span>
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => handleStatus(order.customerUsername, order.orderId, "declined")}
+                    onClick={() =>
+                      handleStatus(
+                        order.customerUsername,
+                        order.orderId,
+                        "declined",
+                      )
+                    }
                     disabled={updatingId === key}
                     className="font-body font-semibold text-white text-xs"
-                    style={{ background: "oklch(0.65 0.25 25)", boxShadow: "none" }}
+                    style={{
+                      background: "oklch(0.65 0.25 25)",
+                      boxShadow: "none",
+                    }}
                   >
-                    {updatingId === key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                    {updatingId === key ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <X className="w-3.5 h-3.5" />
+                    )}
                     <span className="ml-1">Decline</span>
                   </Button>
                 </div>
@@ -319,12 +527,18 @@ function FileTypeBadge({ fileType }: { fileType: string }) {
     <span
       className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs font-bold"
       style={{
-        background: isLua ? "oklch(0.62 0.27 355 / 0.15)" : "oklch(0.55 0.2 145 / 0.15)",
+        background: isLua
+          ? "oklch(0.62 0.27 355 / 0.15)"
+          : "oklch(0.55 0.2 145 / 0.15)",
         color: isLua ? "oklch(0.75 0.22 355)" : "oklch(0.65 0.2 145)",
         border: `1px solid ${isLua ? "oklch(0.62 0.27 355 / 0.4)" : "oklch(0.55 0.2 145 / 0.4)"}`,
       }}
     >
-      {isLua ? <FileCode className="w-3 h-3" /> : <FileArchive className="w-3 h-3" />}
+      {isLua ? (
+        <FileCode className="w-3 h-3" />
+      ) : (
+        <FileArchive className="w-3 h-3" />
+      )}
       {fileType.toUpperCase()}
     </span>
   );
@@ -344,18 +558,21 @@ function ProductFilesSection({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadFiles = useCallback(async (id: bigint) => {
-    setIsLoadingFiles(true);
-    try {
-      const files = await backend.listProductFilesAdmin(id);
-      setExistingFiles(files);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load attached files");
-    } finally {
-      setIsLoadingFiles(false);
-    }
-  }, [backend]);
+  const loadFiles = useCallback(
+    async (id: bigint) => {
+      setIsLoadingFiles(true);
+      try {
+        const files = await backend.listProductFilesAdmin(id);
+        setExistingFiles(files);
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load attached files");
+      } finally {
+        setIsLoadingFiles(false);
+      }
+    },
+    [backend],
+  );
 
   useEffect(() => {
     if (productId !== null) {
@@ -393,8 +610,13 @@ function ProductFilesSection({
         queuedFiles.map(async ({ file, fileType }) => {
           const buffer = await file.arrayBuffer();
           const data = new Uint8Array(buffer);
-          await backend.attachFileToProduct(productId, file.name, fileType, data);
-        })
+          await backend.attachFileToProduct(
+            productId,
+            file.name,
+            fileType,
+            data,
+          );
+        }),
       );
       toast.success(`${queuedFiles.length} file(s) uploaded!`);
       setQueuedFiles([]);
@@ -425,69 +647,92 @@ function ProductFilesSection({
   return (
     <div
       className="rounded-lg p-4 space-y-3"
-      style={{ background: "oklch(0.11 0.04 285)", border: "1px solid oklch(0.25 0.06 285)" }}
+      style={{
+        background: "oklch(0.11 0.04 285)",
+        border: "1px solid oklch(0.25 0.06 285)",
+      }}
     >
       <div className="flex items-center gap-2 mb-2">
-        <Paperclip className="w-4 h-4" style={{ color: "oklch(0.75 0.22 355)" }} />
-        <span className="font-body font-semibold text-sm text-foreground/80">Attached Files</span>
+        <Paperclip
+          className="w-4 h-4"
+          style={{ color: "oklch(0.75 0.22 355)" }}
+        />
+        <span className="font-body font-semibold text-sm text-foreground/80">
+          Attached Files
+        </span>
         {productId === null && (
-          <span className="text-foreground/40 font-body text-xs">(save the product first to attach files)</span>
+          <span className="text-foreground/40 font-body text-xs">
+            (save the product first to attach files)
+          </span>
         )}
       </div>
 
       {/* Existing files */}
-      {productId !== null && (
-        <>
-          {isLoadingFiles ? (
-            <div className="space-y-2">
-              {(["a", "b"] as const).map((sk) => (
-                <Skeleton key={sk} className="h-8 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
-              ))}
-            </div>
-          ) : existingFiles.length === 0 ? (
-            <p className="text-foreground/40 font-body text-xs">No files attached yet</p>
-          ) : (
-            <div className="space-y-1.5">
-              {existingFiles.map((f) => (
-                <div
-                  key={f.fileId.toString()}
-                  className="flex items-center gap-2 px-3 py-2 rounded-md"
-                  style={{ background: "oklch(0.16 0.05 285)" }}
+      {productId !== null &&
+        (isLoadingFiles ? (
+          <div className="space-y-2">
+            {(["a", "b"] as const).map((sk) => (
+              <Skeleton
+                key={sk}
+                className="h-8 w-full"
+                style={{ background: "oklch(0.18 0.04 285)" }}
+              />
+            ))}
+          </div>
+        ) : existingFiles.length === 0 ? (
+          <p className="text-foreground/40 font-body text-xs">
+            No files attached yet
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            {existingFiles.map((f) => (
+              <div
+                key={f.fileId.toString()}
+                className="flex items-center gap-2 px-3 py-2 rounded-md"
+                style={{ background: "oklch(0.16 0.05 285)" }}
+              >
+                <FileTypeBadge fileType={f.fileType} />
+                <span className="flex-1 font-body text-xs text-foreground/70 truncate">
+                  {f.fileName}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveExisting(f.fileId)}
+                  disabled={removingFileId === f.fileId}
+                  className="p-1 rounded hover:bg-destructive/10 transition-colors shrink-0"
+                  style={{ color: "oklch(0.7 0.25 25)" }}
+                  title="Remove file"
                 >
-                  <FileTypeBadge fileType={f.fileType} />
-                  <span className="flex-1 font-body text-xs text-foreground/70 truncate">{f.fileName}</span>
-                  <button
-                    type="button"
-                    onClick={() => void handleRemoveExisting(f.fileId)}
-                    disabled={removingFileId === f.fileId}
-                    className="p-1 rounded hover:bg-destructive/10 transition-colors shrink-0"
-                    style={{ color: "oklch(0.7 0.25 25)" }}
-                    title="Remove file"
-                  >
-                    {removingFileId === f.fileId
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : <Trash2 className="w-3.5 h-3.5" />
-                    }
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+                  {removingFileId === f.fileId ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        ))}
 
       {/* Queued files for upload */}
       {queuedFiles.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-foreground/50 font-body text-xs font-semibold uppercase tracking-wider">Queued for upload:</p>
+          <p className="text-foreground/50 font-body text-xs font-semibold uppercase tracking-wider">
+            Queued for upload:
+          </p>
           {queuedFiles.map((qf, idx) => (
             <div
               key={`queued-${String(idx)}`}
               className="flex items-center gap-2 px-3 py-2 rounded-md"
-              style={{ background: "oklch(0.7 0.22 45 / 0.08)", border: "1px dashed oklch(0.7 0.22 45 / 0.3)" }}
+              style={{
+                background: "oklch(0.7 0.22 45 / 0.08)",
+                border: "1px dashed oklch(0.7 0.22 45 / 0.3)",
+              }}
             >
               <FileTypeBadge fileType={qf.fileType} />
-              <span className="flex-1 font-body text-xs text-foreground/70 truncate">{qf.file.name}</span>
+              <span className="flex-1 font-body text-xs text-foreground/70 truncate">
+                {qf.file.name}
+              </span>
               <button
                 type="button"
                 onClick={() => removeQueued(idx)}
@@ -533,11 +778,14 @@ function ProductFilesSection({
             className="font-body font-semibold text-white shrink-0"
             style={{ background: "oklch(0.62 0.27 355 / 0.8)" }}
           >
-            {isUploading
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <Upload className="w-3.5 h-3.5" />
-            }
-            <span className="ml-1">{isUploading ? "Uploading..." : `Upload ${queuedFiles.length}`}</span>
+            {isUploading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Upload className="w-3.5 h-3.5" />
+            )}
+            <span className="ml-1">
+              {isUploading ? "Uploading..." : `Upload ${queuedFiles.length}`}
+            </span>
           </Button>
         )}
       </div>
@@ -554,7 +802,12 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   const [deletingId, setDeletingId] = useState<bigint | null>(null);
   const [savedProductId, setSavedProductId] = useState<bigint | null>(null);
   const [form, setForm] = useState<ProductFormData>({
-    name: "", description: "", price: "", category: "game_account", imageUrl: "", isAvailable: true,
+    name: "",
+    description: "",
+    price: "",
+    category: "game_account",
+    imageUrl: "",
+    isAvailable: true,
   });
 
   const loadProducts = useCallback(async () => {
@@ -570,10 +823,19 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
     }
   }, [backend]);
 
-  useEffect(() => { void loadProducts(); }, [loadProducts]);
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
 
   const resetForm = () => {
-    setForm({ name: "", description: "", price: "", category: "game_account", imageUrl: "", isAvailable: true });
+    setForm({
+      name: "",
+      description: "",
+      price: "",
+      category: "game_account",
+      imageUrl: "",
+      isAvailable: true,
+    });
     setEditingProduct(null);
     setSavedProductId(null);
     setShowForm(false);
@@ -594,18 +856,38 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error("Product name is required"); return; }
-    if (!form.price || isNaN(parseFloat(form.price))) { toast.error("Valid price is required"); return; }
+    if (!form.name.trim()) {
+      toast.error("Product name is required");
+      return;
+    }
+    if (!form.price || Number.isNaN(Number.parseFloat(form.price))) {
+      toast.error("Valid price is required");
+      return;
+    }
 
     setIsSaving(true);
     try {
       const price = parsePriceToPence(form.price);
       if (editingProduct) {
-        await backend.updateProduct(editingProduct.id, form.name.trim(), form.description.trim(), price, form.category, form.imageUrl.trim(), form.isAvailable);
+        await backend.updateProduct(
+          editingProduct.id,
+          form.name.trim(),
+          form.description.trim(),
+          price,
+          form.category,
+          form.imageUrl.trim(),
+          form.isAvailable,
+        );
         toast.success("Product updated!");
         void loadProducts();
       } else {
-        const newId = await backend.createProduct(form.name.trim(), form.description.trim(), price, form.category, form.imageUrl.trim());
+        const newId = await backend.createProduct(
+          form.name.trim(),
+          form.description.trim(),
+          price,
+          form.category,
+          form.imageUrl.trim(),
+        );
         toast.success("Product created! You can now attach files below.");
         setSavedProductId(newId);
         void loadProducts();
@@ -632,16 +914,23 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
     }
   };
 
-  const fileAttachProductId = editingProduct ? editingProduct.id : savedProductId;
+  const fileAttachProductId = editingProduct
+    ? editingProduct.id
+    : savedProductId;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-body font-bold text-foreground">{products.length} Products</h3>
+        <h3 className="font-body font-bold text-foreground">
+          {products.length} Products
+        </h3>
         <Button
           size="sm"
           className="btn-gradient text-white font-body font-semibold"
-          onClick={() => { resetForm(); setShowForm(true); }}
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
         >
           <Plus className="w-4 h-4 mr-1.5" />
           Add Product
@@ -649,8 +938,19 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
       </div>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent className="font-body max-w-lg max-h-[90vh] overflow-y-auto" style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}>
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent
+          className="font-body max-w-lg max-h-[90vh] overflow-y-auto"
+          style={{
+            background: "oklch(0.13 0.05 285)",
+            border: "1px solid oklch(0.3 0.08 285)",
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="font-display text-xl text-foreground">
               {editingProduct ? "Edit Product" : "Add New Product"}
@@ -658,18 +958,65 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <FormField label="Name *">
-              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Minecraft Account" className="input-dark" style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }} />
+              <Input
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                placeholder="e.g. Minecraft Account"
+                className="input-dark"
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  borderColor: "oklch(0.3 0.08 285)",
+                  color: "white",
+                }}
+              />
             </FormField>
             <FormField label="Description">
-              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Describe the product..." className="resize-none" style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }} />
+              <Textarea
+                value={form.description}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, description: e.target.value }))
+                }
+                placeholder="Describe the product..."
+                className="resize-none"
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  borderColor: "oklch(0.3 0.08 285)",
+                  color: "white",
+                }}
+              />
             </FormField>
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Price (£) *">
-                <Input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} placeholder="9.99" style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }} />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.price}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, price: e.target.value }))
+                  }
+                  placeholder="9.99"
+                  style={{
+                    background: "oklch(0.15 0.05 285)",
+                    borderColor: "oklch(0.3 0.08 285)",
+                    color: "white",
+                  }}
+                />
               </FormField>
               <FormField label="Category">
-                <Select value={form.category} onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}>
-                  <SelectTrigger style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }}>
+                <Select
+                  value={form.category}
+                  onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}
+                >
+                  <SelectTrigger
+                    style={{
+                      background: "oklch(0.15 0.05 285)",
+                      borderColor: "oklch(0.3 0.08 285)",
+                      color: "white",
+                    }}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent style={{ background: "oklch(0.15 0.05 285)" }}>
@@ -680,12 +1027,30 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
               </FormField>
             </div>
             <FormField label="Image URL">
-              <Input value={form.imageUrl} onChange={(e) => setForm((p) => ({ ...p, imageUrl: e.target.value }))} placeholder="https://..." style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }} />
+              <Input
+                value={form.imageUrl}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, imageUrl: e.target.value }))
+                }
+                placeholder="https://..."
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  borderColor: "oklch(0.3 0.08 285)",
+                  color: "white",
+                }}
+              />
             </FormField>
             {editingProduct && (
               <div className="flex items-center gap-3">
-                <Switch checked={form.isAvailable} onCheckedChange={(v) => setForm((p) => ({ ...p, isAvailable: v }))} />
-                <span className="font-body text-sm text-foreground/70">Available in store</span>
+                <Switch
+                  checked={form.isAvailable}
+                  onCheckedChange={(v) =>
+                    setForm((p) => ({ ...p, isAvailable: v }))
+                  }
+                />
+                <span className="font-body text-sm text-foreground/70">
+                  Available in store
+                </span>
               </div>
             )}
 
@@ -696,7 +1061,17 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                 onClick={() => void handleSave()}
                 disabled={isSaving}
               >
-                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Product &amp; Attach Files</>}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Product &amp; Attach Files
+                  </>
+                )}
               </Button>
             )}
 
@@ -707,12 +1082,30 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
             />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={resetForm} className="font-body text-foreground/60">
+            <Button
+              variant="ghost"
+              onClick={resetForm}
+              className="font-body text-foreground/60"
+            >
               {savedProductId && !editingProduct ? "Done" : "Cancel"}
             </Button>
             {(editingProduct || savedProductId) && (
-              <Button className="btn-gradient text-white font-body font-semibold" onClick={() => void handleSave()} disabled={isSaving}>
-                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save</>}
+              <Button
+                className="btn-gradient text-white font-body font-semibold"
+                onClick={() => void handleSave()}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save
+                  </>
+                )}
               </Button>
             )}
           </DialogFooter>
@@ -721,26 +1114,44 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
 
       {isLoading ? (
         <div className="space-y-3">
-          {(["a", "b"] as const).map((sk) => <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />)}
+          {(["a", "b"] as const).map((sk) => (
+            <Skeleton
+              key={sk}
+              className="h-16 w-full"
+              style={{ background: "oklch(0.18 0.04 285)" }}
+            />
+          ))}
         </div>
       ) : products.length === 0 ? (
         <div className="glass-card p-10 text-center">
           <ShoppingBag className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-body text-foreground/50 mb-4">No products yet</p>
-          <Button className="btn-gradient text-white font-body font-semibold" size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />Add First Product
+          <Button
+            className="btn-gradient text-white font-body font-semibold"
+            size="sm"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add First Product
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
           {products.map((product) => (
-            <div key={product.id.toString()} className="glass-card p-4 flex items-center gap-3">
+            <div
+              key={product.id.toString()}
+              className="glass-card p-4 flex items-center gap-3"
+            >
               <div
                 className="w-12 h-12 rounded-lg shrink-0 overflow-hidden"
                 style={{ background: "oklch(0.18 0.06 285)" }}
               >
                 {product.imageUrl ? (
-                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xl">
                     {product.category === "download_file" ? "💾" : "🎮"}
@@ -748,11 +1159,25 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-body font-semibold text-foreground text-sm truncate">{product.name}</p>
+                <p className="font-body font-semibold text-foreground text-sm truncate">
+                  {product.name}
+                </p>
                 <div className="flex gap-3 text-xs font-body text-foreground/50 mt-0.5">
-                  <span style={{ color: "oklch(0.85 0.19 85)" }}>{formatPrice(product.price)}</span>
-                  <span>{product.category === "download_file" ? "Download" : "Account"}</span>
-                  <span style={{ color: product.isAvailable ? "oklch(0.65 0.2 145)" : "oklch(0.7 0.25 25)" }}>
+                  <span style={{ color: "oklch(0.85 0.19 85)" }}>
+                    {formatPrice(product.price)}
+                  </span>
+                  <span>
+                    {product.category === "download_file"
+                      ? "Download"
+                      : "Account"}
+                  </span>
+                  <span
+                    style={{
+                      color: product.isAvailable
+                        ? "oklch(0.65 0.2 145)"
+                        : "oklch(0.7 0.25 25)",
+                    }}
+                  >
                     {product.isAvailable ? "✓ Available" : "✕ Unavailable"}
                   </span>
                 </div>
@@ -775,10 +1200,11 @@ function ProductsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                   style={{ color: "oklch(0.7 0.25 25)" }}
                   title="Delete"
                 >
-                  {deletingId === product.id
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <Trash2 className="w-4 h-4" />
-                  }
+                  {deletingId === product.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -807,7 +1233,11 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   const [deletingId, setDeletingId] = useState<bigint | null>(null);
   const [newFeature, setNewFeature] = useState("");
   const [form, setForm] = useState<PackageFormData>({
-    name: "", description: "", price: "", features: [], isActive: true,
+    name: "",
+    description: "",
+    price: "",
+    features: [],
+    isActive: true,
   });
 
   const loadPackages = useCallback(async () => {
@@ -823,10 +1253,18 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
     }
   }, [backend]);
 
-  useEffect(() => { void loadPackages(); }, [loadPackages]);
+  useEffect(() => {
+    void loadPackages();
+  }, [loadPackages]);
 
   const resetForm = () => {
-    setForm({ name: "", description: "", price: "", features: [], isActive: true });
+    setForm({
+      name: "",
+      description: "",
+      price: "",
+      features: [],
+      isActive: true,
+    });
     setEditingPkg(null);
     setShowForm(false);
     setNewFeature("");
@@ -852,21 +1290,42 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   };
 
   const removeFeature = (idx: number) => {
-    setForm((p) => ({ ...p, features: p.features.filter((_, i) => i !== idx) }));
+    setForm((p) => ({
+      ...p,
+      features: p.features.filter((_, i) => i !== idx),
+    }));
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error("Package name is required"); return; }
-    if (!form.price || isNaN(parseFloat(form.price))) { toast.error("Valid price is required"); return; }
+    if (!form.name.trim()) {
+      toast.error("Package name is required");
+      return;
+    }
+    if (!form.price || Number.isNaN(Number.parseFloat(form.price))) {
+      toast.error("Valid price is required");
+      return;
+    }
 
     setIsSaving(true);
     try {
       const price = parsePriceToPence(form.price);
       if (editingPkg) {
-        await backend.updatePackage(editingPkg.id, form.name.trim(), form.description.trim(), price, form.features, form.isActive);
+        await backend.updatePackage(
+          editingPkg.id,
+          form.name.trim(),
+          form.description.trim(),
+          price,
+          form.features,
+          form.isActive,
+        );
         toast.success("Package updated!");
       } else {
-        await backend.createPackage(form.name.trim(), form.description.trim(), price, form.features);
+        await backend.createPackage(
+          form.name.trim(),
+          form.description.trim(),
+          price,
+          form.features,
+        );
         toast.success("Package created!");
       }
       resetForm();
@@ -896,11 +1355,16 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-body font-bold text-foreground">{packages.length} Packages</h3>
+        <h3 className="font-body font-bold text-foreground">
+          {packages.length} Packages
+        </h3>
         <Button
           size="sm"
           className="btn-gradient text-white font-body font-semibold"
-          onClick={() => { resetForm(); setShowForm(true); }}
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
         >
           <Plus className="w-4 h-4 mr-1.5" />
           Add Package
@@ -908,8 +1372,19 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
       </div>
 
       {/* Dialog */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent className="font-body max-w-lg" style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}>
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent
+          className="font-body max-w-lg"
+          style={{
+            background: "oklch(0.13 0.05 285)",
+            border: "1px solid oklch(0.3 0.08 285)",
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="font-display text-xl text-foreground">
               {editingPkg ? "Edit Package" : "Add New Package"}
@@ -917,13 +1392,50 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <FormField label="Name *">
-              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Premium Monthly" style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }} />
+              <Input
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                placeholder="e.g. Premium Monthly"
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  borderColor: "oklch(0.3 0.08 285)",
+                  color: "white",
+                }}
+              />
             </FormField>
             <FormField label="Description">
-              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="What's included..." className="resize-none" style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }} />
+              <Textarea
+                value={form.description}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, description: e.target.value }))
+                }
+                placeholder="What's included..."
+                className="resize-none"
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  borderColor: "oklch(0.3 0.08 285)",
+                  color: "white",
+                }}
+              />
             </FormField>
             <FormField label="Price (£) *">
-              <Input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} placeholder="9.99" style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }} />
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.price}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, price: e.target.value }))
+                }
+                placeholder="9.99"
+                style={{
+                  background: "oklch(0.15 0.05 285)",
+                  borderColor: "oklch(0.3 0.08 285)",
+                  color: "white",
+                }}
+              />
             </FormField>
 
             {/* Features */}
@@ -933,18 +1445,39 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                   <Input
                     value={newFeature}
                     onChange={(e) => setNewFeature(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") addFeature(); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addFeature();
+                    }}
                     placeholder="Add a feature..."
-                    style={{ background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" }}
+                    style={{
+                      background: "oklch(0.15 0.05 285)",
+                      borderColor: "oklch(0.3 0.08 285)",
+                      color: "white",
+                    }}
                   />
-                  <Button type="button" size="sm" onClick={addFeature} className="btn-gradient text-white shrink-0">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={addFeature}
+                    className="btn-gradient text-white shrink-0"
+                  >
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
                 {form.features.map((feat, idx) => (
-                  <div key={`${feat}-${String(idx)}`} className="flex items-center gap-2 px-3 py-1.5 rounded-md" style={{ background: "oklch(0.18 0.05 285)" }}>
-                    <span className="flex-1 font-body text-sm text-foreground/80">{feat}</span>
-                    <button type="button" onClick={() => removeFeature(idx)} className="text-foreground/40 hover:text-destructive transition-colors">
+                  <div
+                    key={`${feat}-${String(idx)}`}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-md"
+                    style={{ background: "oklch(0.18 0.05 285)" }}
+                  >
+                    <span className="flex-1 font-body text-sm text-foreground/80">
+                      {feat}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFeature(idx)}
+                      className="text-foreground/40 hover:text-destructive transition-colors"
+                    >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -954,15 +1487,42 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
 
             {editingPkg && (
               <div className="flex items-center gap-3">
-                <Switch checked={form.isActive} onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v }))} />
-                <span className="font-body text-sm text-foreground/70">Active (visible in store)</span>
+                <Switch
+                  checked={form.isActive}
+                  onCheckedChange={(v) =>
+                    setForm((p) => ({ ...p, isActive: v }))
+                  }
+                />
+                <span className="font-body text-sm text-foreground/70">
+                  Active (visible in store)
+                </span>
               </div>
             )}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={resetForm} className="font-body text-foreground/60">Cancel</Button>
-            <Button className="btn-gradient text-white font-body font-semibold" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save</>}
+            <Button
+              variant="ghost"
+              onClick={resetForm}
+              className="font-body text-foreground/60"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="btn-gradient text-white font-body font-semibold"
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -970,37 +1530,74 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
 
       {isLoading ? (
         <div className="space-y-3">
-          {(["a", "b"] as const).map((sk) => <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />)}
+          {(["a", "b"] as const).map((sk) => (
+            <Skeleton
+              key={sk}
+              className="h-16 w-full"
+              style={{ background: "oklch(0.18 0.04 285)" }}
+            />
+          ))}
         </div>
       ) : packages.length === 0 ? (
         <div className="glass-card p-10 text-center">
           <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-body text-foreground/50 mb-4">No packages yet</p>
-          <Button className="btn-gradient text-white font-body font-semibold" size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />Add First Package
+          <Button
+            className="btn-gradient text-white font-body font-semibold"
+            size="sm"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add First Package
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
           {packages.map((pkg) => (
-            <div key={pkg.id.toString()} className="glass-card p-4 flex items-start gap-3">
+            <div
+              key={pkg.id.toString()}
+              className="glass-card p-4 flex items-start gap-3"
+            >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="font-body font-semibold text-foreground text-sm">{pkg.name}</p>
+                  <p className="font-body font-semibold text-foreground text-sm">
+                    {pkg.name}
+                  </p>
                   <span
                     className="px-1.5 py-0.5 rounded-full font-body text-xs"
-                    style={{ background: pkg.isActive ? "oklch(0.55 0.2 145 / 0.15)" : "oklch(0.2 0.04 285 / 0.3)", color: pkg.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)" }}
+                    style={{
+                      background: pkg.isActive
+                        ? "oklch(0.55 0.2 145 / 0.15)"
+                        : "oklch(0.2 0.04 285 / 0.3)",
+                      color: pkg.isActive
+                        ? "oklch(0.65 0.2 145)"
+                        : "oklch(0.5 0.04 285)",
+                    }}
                   >
                     {pkg.isActive ? "Active" : "Inactive"}
                   </span>
                 </div>
-                <p style={{ color: "oklch(0.85 0.19 85)" }} className="font-body text-xs mb-1">{formatPrice(pkg.price)}/month</p>
+                <p
+                  style={{ color: "oklch(0.85 0.19 85)" }}
+                  className="font-body text-xs mb-1"
+                >
+                  {formatPrice(pkg.price)}/month
+                </p>
                 {pkg.features.length > 0 && (
-                  <p className="text-foreground/40 font-body text-xs">{pkg.features.slice(0, 2).join(", ")}{pkg.features.length > 2 ? "..." : ""}</p>
+                  <p className="text-foreground/40 font-body text-xs">
+                    {pkg.features.slice(0, 2).join(", ")}
+                    {pkg.features.length > 2 ? "..." : ""}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => openEdit(pkg)} className="p-2 rounded-lg hover:bg-muted/40 transition-colors" style={{ color: "oklch(0.62 0.27 355)" }} title="Edit">
+                <button
+                  type="button"
+                  onClick={() => openEdit(pkg)}
+                  className="p-2 rounded-lg hover:bg-muted/40 transition-colors"
+                  style={{ color: "oklch(0.62 0.27 355)" }}
+                  title="Edit"
+                >
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
@@ -1011,7 +1608,11 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                   style={{ color: "oklch(0.7 0.25 25)" }}
                   title="Delete"
                 >
-                  {deletingId === pkg.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  {deletingId === pkg.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -1023,17 +1624,24 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
 }
 
 // ---- Payment Settings Tab ----
-function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] }) {
+function PaymentSettingsTab({
+  backend,
+}: { backend: AdminPageProps["backend"] }) {
   const [settings, setSettings] = useState<PaymentSettings>({
-    paypalEmail: "", bitcoinWallet: "", ethereumWallet: "",
-    xboxInstructions: "", amazonInstructions: "", etsyInstructions: "",
+    paypalEmail: "",
+    bitcoinWallet: "",
+    ethereumWallet: "",
+    xboxInstructions: "",
+    amazonInstructions: "",
+    etsyInstructions: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
-    backend.getPaymentSettings()
+    backend
+      .getPaymentSettings()
       .then((data) => {
         if (data) setSettings(data);
       })
@@ -1061,13 +1669,21 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
     return (
       <div className="space-y-4">
         {(["a", "b", "c", "d", "e", "f"] as const).map((sk) => (
-          <Skeleton key={sk} className="h-10 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+          <Skeleton
+            key={sk}
+            className="h-10 w-full"
+            style={{ background: "oklch(0.18 0.04 285)" }}
+          />
         ))}
       </div>
     );
   }
 
-  const inputStyle = { background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" };
+  const inputStyle = {
+    background: "oklch(0.15 0.05 285)",
+    borderColor: "oklch(0.3 0.08 285)",
+    color: "white",
+  };
   const textareaStyle = { ...inputStyle };
 
   return (
@@ -1076,7 +1692,9 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
         <FormField label="PayPal Email">
           <Input
             value={settings.paypalEmail}
-            onChange={(e) => setSettings((p) => ({ ...p, paypalEmail: e.target.value }))}
+            onChange={(e) =>
+              setSettings((p) => ({ ...p, paypalEmail: e.target.value }))
+            }
             placeholder="your@paypal.com"
             type="email"
             style={inputStyle}
@@ -1085,7 +1703,9 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
         <FormField label="Bitcoin Wallet Address">
           <Input
             value={settings.bitcoinWallet}
-            onChange={(e) => setSettings((p) => ({ ...p, bitcoinWallet: e.target.value }))}
+            onChange={(e) =>
+              setSettings((p) => ({ ...p, bitcoinWallet: e.target.value }))
+            }
             placeholder="bc1q..."
             style={inputStyle}
           />
@@ -1093,7 +1713,9 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
         <FormField label="Ethereum Wallet Address">
           <Input
             value={settings.ethereumWallet}
-            onChange={(e) => setSettings((p) => ({ ...p, ethereumWallet: e.target.value }))}
+            onChange={(e) =>
+              setSettings((p) => ({ ...p, ethereumWallet: e.target.value }))
+            }
             placeholder="0x..."
             style={inputStyle}
           />
@@ -1108,7 +1730,9 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
         <FormField label="Xbox Gift Card (UK) Instructions">
           <Textarea
             value={settings.xboxInstructions}
-            onChange={(e) => setSettings((p) => ({ ...p, xboxInstructions: e.target.value }))}
+            onChange={(e) =>
+              setSettings((p) => ({ ...p, xboxInstructions: e.target.value }))
+            }
             placeholder="Instructions for how customers should use Xbox gift cards..."
             className="resize-none"
             rows={3}
@@ -1119,7 +1743,9 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
         <FormField label="Amazon Gift Card (UK) Instructions">
           <Textarea
             value={settings.amazonInstructions}
-            onChange={(e) => setSettings((p) => ({ ...p, amazonInstructions: e.target.value }))}
+            onChange={(e) =>
+              setSettings((p) => ({ ...p, amazonInstructions: e.target.value }))
+            }
             placeholder="Instructions for how customers should use Amazon gift cards..."
             className="resize-none"
             rows={3}
@@ -1130,7 +1756,9 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
         <FormField label="Etsy Gift Card (UK) Instructions">
           <Textarea
             value={settings.etsyInstructions}
-            onChange={(e) => setSettings((p) => ({ ...p, etsyInstructions: e.target.value }))}
+            onChange={(e) =>
+              setSettings((p) => ({ ...p, etsyInstructions: e.target.value }))
+            }
             placeholder="Instructions for how customers should use Etsy gift cards..."
             className="resize-none"
             rows={3}
@@ -1145,9 +1773,15 @@ function PaymentSettingsTab({ backend }: { backend: AdminPageProps["backend"] })
         disabled={isSaving}
       >
         {isSaving ? (
-          <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Saving...
+          </>
         ) : (
-          <><Save className="w-4 h-4 mr-2" />Save Payment Settings</>
+          <>
+            <Save className="w-4 h-4 mr-2" />
+            Save Payment Settings
+          </>
         )}
       </Button>
     </div>
@@ -1172,7 +1806,11 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
   const [togglingCode, setTogglingCode] = useState<string | null>(null);
   const [form, setForm] = useState<CouponFormData>({
-    code: "", discountType: "percentage", discountValue: "", maxUses: "", isActive: true,
+    code: "",
+    discountType: "percentage",
+    discountValue: "",
+    maxUses: "",
+    isActive: true,
   });
 
   const loadCoupons = useCallback(async () => {
@@ -1188,18 +1826,27 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
     }
   }, [backend]);
 
-  useEffect(() => { void loadCoupons(); }, [loadCoupons]);
+  useEffect(() => {
+    void loadCoupons();
+  }, [loadCoupons]);
 
   const resetForm = () => {
-    setForm({ code: "", discountType: "percentage", discountValue: "", maxUses: "", isActive: true });
+    setForm({
+      code: "",
+      discountType: "percentage",
+      discountValue: "",
+      maxUses: "",
+      isActive: true,
+    });
     setEditingCoupon(null);
     setShowForm(false);
   };
 
   const openEdit = (coupon: Coupon) => {
-    const rawValue = coupon.discountType === "percentage"
-      ? coupon.discountValue.toString()
-      : (Number(coupon.discountValue) / 100).toFixed(2);
+    const rawValue =
+      coupon.discountType === "percentage"
+        ? coupon.discountValue.toString()
+        : (Number(coupon.discountValue) / 100).toFixed(2);
     setForm({
       code: coupon.code,
       discountType: coupon.discountType,
@@ -1212,28 +1859,57 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   };
 
   const handleSave = async () => {
-    if (!form.code.trim()) { toast.error("Coupon code is required"); return; }
-    if (!form.discountValue || isNaN(parseFloat(form.discountValue))) { toast.error("Valid discount value is required"); return; }
+    if (!form.code.trim()) {
+      toast.error("Coupon code is required");
+      return;
+    }
+    if (
+      !form.discountValue ||
+      Number.isNaN(Number.parseFloat(form.discountValue))
+    ) {
+      toast.error("Valid discount value is required");
+      return;
+    }
 
-    const rawValue = parseFloat(form.discountValue);
+    const rawValue = Number.parseFloat(form.discountValue);
     let discountValue: bigint;
     if (form.discountType === "percentage") {
-      if (rawValue <= 0 || rawValue > 100) { toast.error("Percentage must be between 1 and 100"); return; }
+      if (rawValue <= 0 || rawValue > 100) {
+        toast.error("Percentage must be between 1 and 100");
+        return;
+      }
       discountValue = BigInt(Math.round(rawValue));
     } else {
-      if (rawValue <= 0) { toast.error("Discount amount must be greater than 0"); return; }
+      if (rawValue <= 0) {
+        toast.error("Discount amount must be greater than 0");
+        return;
+      }
       discountValue = BigInt(Math.round(rawValue * 100));
     }
-    const maxUses = form.maxUses.trim() ? BigInt(Math.max(0, parseInt(form.maxUses, 10))) : 0n;
+    const maxUses = form.maxUses.trim()
+      ? BigInt(Math.max(0, Number.parseInt(form.maxUses, 10)))
+      : 0n;
     const code = form.code.trim().toUpperCase();
 
     setIsSaving(true);
     try {
       if (editingCoupon) {
-        await backend.updateCoupon(code, form.discountType, discountValue, maxUses, form.isActive);
+        await backend.updateCoupon(
+          code,
+          form.discountType,
+          discountValue,
+          maxUses,
+          form.isActive,
+        );
         toast.success("Coupon updated!");
       } else {
-        await backend.createCoupon(code, form.discountType, discountValue, maxUses, form.isActive);
+        await backend.createCoupon(
+          code,
+          form.discountType,
+          discountValue,
+          maxUses,
+          form.isActive,
+        );
         toast.success("Coupon created!");
       }
       resetForm();
@@ -1263,8 +1939,16 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
   const handleToggleActive = async (coupon: Coupon) => {
     setTogglingCode(coupon.code);
     try {
-      await backend.updateCoupon(coupon.code, coupon.discountType, coupon.discountValue, coupon.maxUses, !coupon.isActive);
-      toast.success(coupon.isActive ? "Coupon deactivated" : "Coupon activated");
+      await backend.updateCoupon(
+        coupon.code,
+        coupon.discountType,
+        coupon.discountValue,
+        coupon.maxUses,
+        !coupon.isActive,
+      );
+      toast.success(
+        coupon.isActive ? "Coupon deactivated" : "Coupon activated",
+      );
       void loadCoupons();
     } catch (err) {
       console.error(err);
@@ -1281,16 +1965,25 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
     return `£${(Number(coupon.discountValue) / 100).toFixed(2)} off`;
   };
 
-  const inputStyle = { background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" };
+  const inputStyle = {
+    background: "oklch(0.15 0.05 285)",
+    borderColor: "oklch(0.3 0.08 285)",
+    color: "white",
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-body font-bold text-foreground">{coupons.length} Coupons</h3>
+        <h3 className="font-body font-bold text-foreground">
+          {coupons.length} Coupons
+        </h3>
         <Button
           size="sm"
           className="btn-gradient text-white font-body font-semibold"
-          onClick={() => { resetForm(); setShowForm(true); }}
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
         >
           <Plus className="w-4 h-4 mr-1.5" />
           Create Coupon
@@ -1298,11 +1991,25 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
       </div>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent className="font-body max-w-lg" style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}>
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent
+          className="font-body max-w-lg"
+          style={{
+            background: "oklch(0.13 0.05 285)",
+            border: "1px solid oklch(0.3 0.08 285)",
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="font-display text-xl text-foreground flex items-center gap-2">
-              <Tag className="w-5 h-5" style={{ color: "oklch(0.62 0.27 355)" }} />
+              <Tag
+                className="w-5 h-5"
+                style={{ color: "oklch(0.62 0.27 355)" }}
+              />
               {editingCoupon ? "Edit Coupon" : "Create Coupon"}
             </DialogTitle>
           </DialogHeader>
@@ -1310,14 +2017,20 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
             <FormField label="Coupon Code *">
               <Input
                 value={form.code}
-                onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))
+                }
                 placeholder="e.g. SAVE10"
                 disabled={!!editingCoupon}
-                style={editingCoupon ? { ...inputStyle, opacity: 0.6 } : inputStyle}
+                style={
+                  editingCoupon ? { ...inputStyle, opacity: 0.6 } : inputStyle
+                }
                 className="uppercase font-mono tracking-widest"
               />
               {!editingCoupon && (
-                <p className="text-foreground/40 font-body text-xs mt-1">Code will be uppercased automatically</p>
+                <p className="text-foreground/40 font-body text-xs mt-1">
+                  Code will be uppercased automatically
+                </p>
               )}
             </FormField>
 
@@ -1325,27 +2038,41 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
               <FormField label="Discount Type *">
                 <Select
                   value={form.discountType}
-                  onValueChange={(v) => setForm((p) => ({ ...p, discountType: v, discountValue: "" }))}
+                  onValueChange={(v) =>
+                    setForm((p) => ({
+                      ...p,
+                      discountType: v,
+                      discountValue: "",
+                    }))
+                  }
                 >
                   <SelectTrigger style={inputStyle}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent style={{ background: "oklch(0.15 0.05 285)" }}>
-                    <SelectItem value="percentage">Percentage Off (%)</SelectItem>
+                    <SelectItem value="percentage">
+                      Percentage Off (%)
+                    </SelectItem>
                     <SelectItem value="fixed">Fixed Amount Off (£)</SelectItem>
                   </SelectContent>
                 </Select>
               </FormField>
 
-              <FormField label={`Value (${form.discountType === "percentage" ? "%" : "£"}) *`}>
+              <FormField
+                label={`Value (${form.discountType === "percentage" ? "%" : "£"}) *`}
+              >
                 <Input
                   type="number"
                   min="0"
                   max={form.discountType === "percentage" ? "100" : undefined}
                   step={form.discountType === "percentage" ? "1" : "0.01"}
                   value={form.discountValue}
-                  onChange={(e) => setForm((p) => ({ ...p, discountValue: e.target.value }))}
-                  placeholder={form.discountType === "percentage" ? "e.g. 10" : "e.g. 5.00"}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, discountValue: e.target.value }))
+                  }
+                  placeholder={
+                    form.discountType === "percentage" ? "e.g. 10" : "e.g. 5.00"
+                  }
                   style={inputStyle}
                 />
               </FormField>
@@ -1357,7 +2084,9 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                 min="0"
                 step="1"
                 value={form.maxUses}
-                onChange={(e) => setForm((p) => ({ ...p, maxUses: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, maxUses: e.target.value }))
+                }
                 placeholder="Unlimited"
                 style={inputStyle}
               />
@@ -1369,17 +2098,36 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                 onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v }))}
               />
               <span className="font-body text-sm text-foreground/70">
-                {form.isActive ? "Active (customers can use this coupon)" : "Inactive (coupon disabled)"}
+                {form.isActive
+                  ? "Active (customers can use this coupon)"
+                  : "Inactive (coupon disabled)"}
               </span>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={resetForm} className="font-body text-foreground/60">Cancel</Button>
-            <Button className="btn-gradient text-white font-body font-semibold" onClick={handleSave} disabled={isSaving}>
-              {isSaving
-                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
-                : <><Save className="w-4 h-4 mr-2" />Save Coupon</>
-              }
+            <Button
+              variant="ghost"
+              onClick={resetForm}
+              className="font-body text-foreground/60"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="btn-gradient text-white font-body font-semibold"
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Coupon
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1388,35 +2136,59 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
       {isLoading ? (
         <div className="space-y-3">
           {(["a", "b", "c"] as const).map((sk) => (
-            <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+            <Skeleton
+              key={sk}
+              className="h-16 w-full"
+              style={{ background: "oklch(0.18 0.04 285)" }}
+            />
           ))}
         </div>
       ) : coupons.length === 0 ? (
         <div className="glass-card p-10 text-center">
           <Tag className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-body text-foreground/50 mb-4">No coupons yet</p>
-          <Button className="btn-gradient text-white font-body font-semibold" size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />Create First Coupon
+          <Button
+            className="btn-gradient text-white font-body font-semibold"
+            size="sm"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Create First Coupon
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
           {coupons.map((coupon) => (
-            <div key={coupon.code} className="glass-card p-4 flex items-center gap-3">
+            <div
+              key={coupon.code}
+              className="glass-card p-4 flex items-center gap-3"
+            >
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: "oklch(0.62 0.27 355 / 0.12)", border: "1px solid oklch(0.62 0.27 355 / 0.3)" }}
+                style={{
+                  background: "oklch(0.62 0.27 355 / 0.12)",
+                  border: "1px solid oklch(0.62 0.27 355 / 0.3)",
+                }}
               >
-                <Tag className="w-4 h-4" style={{ color: "oklch(0.62 0.27 355)" }} />
+                <Tag
+                  className="w-4 h-4"
+                  style={{ color: "oklch(0.62 0.27 355)" }}
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="font-mono font-bold text-sm text-foreground tracking-wider">{coupon.code}</span>
+                  <span className="font-mono font-bold text-sm text-foreground tracking-wider">
+                    {coupon.code}
+                  </span>
                   <Badge
                     className="font-body text-xs px-1.5 py-0.5"
                     style={{
-                      background: coupon.isActive ? "oklch(0.55 0.2 145 / 0.15)" : "oklch(0.2 0.04 285 / 0.4)",
-                      color: coupon.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)",
+                      background: coupon.isActive
+                        ? "oklch(0.55 0.2 145 / 0.15)"
+                        : "oklch(0.2 0.04 285 / 0.4)",
+                      color: coupon.isActive
+                        ? "oklch(0.65 0.2 145)"
+                        : "oklch(0.5 0.04 285)",
                       border: `1px solid ${coupon.isActive ? "oklch(0.55 0.2 145 / 0.4)" : "oklch(0.3 0.04 285)"}`,
                     }}
                   >
@@ -1424,11 +2196,20 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-body text-foreground/50">
-                  <span style={{ color: "oklch(0.85 0.19 85)" }}>{formatCouponValue(coupon)}</span>
-                  <span>
-                    Used: {coupon.usedCount.toString()}{coupon.maxUses > 0n ? ` / ${coupon.maxUses.toString()}` : " (unlimited)"}
+                  <span style={{ color: "oklch(0.85 0.19 85)" }}>
+                    {formatCouponValue(coupon)}
                   </span>
-                  <span>{coupon.discountType === "percentage" ? "Percentage" : "Fixed Amount"}</span>
+                  <span>
+                    Used: {coupon.usedCount.toString()}
+                    {coupon.maxUses > 0n
+                      ? ` / ${coupon.maxUses.toString()}`
+                      : " (unlimited)"}
+                  </span>
+                  <span>
+                    {coupon.discountType === "percentage"
+                      ? "Percentage"
+                      : "Fixed Amount"}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -1438,15 +2219,20 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                   onClick={() => void handleToggleActive(coupon)}
                   disabled={togglingCode === coupon.code}
                   className="p-2 rounded-lg hover:bg-muted/40 transition-colors"
-                  style={{ color: coupon.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)" }}
+                  style={{
+                    color: coupon.isActive
+                      ? "oklch(0.65 0.2 145)"
+                      : "oklch(0.5 0.04 285)",
+                  }}
                   title={coupon.isActive ? "Deactivate" : "Activate"}
                 >
-                  {togglingCode === coupon.code
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : coupon.isActive
-                      ? <ToggleRight className="w-4 h-4" />
-                      : <ToggleLeft className="w-4 h-4" />
-                  }
+                  {togglingCode === coupon.code ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : coupon.isActive ? (
+                    <ToggleRight className="w-4 h-4" />
+                  ) : (
+                    <ToggleLeft className="w-4 h-4" />
+                  )}
                 </button>
                 {/* Edit */}
                 <button
@@ -1467,10 +2253,11 @@ function CouponsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                   style={{ color: "oklch(0.7 0.25 25)" }}
                   title="Delete"
                 >
-                  {deletingCode === coupon.code
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <Trash2 className="w-4 h-4" />
-                  }
+                  {deletingCode === coupon.code ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -1491,7 +2278,12 @@ interface AdFormData {
   isActive: boolean;
 }
 
-function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
+function AdsTab({
+  backend,
+  onAdsChanged,
+  preFillData,
+  onPreFillConsumed,
+}: {
   backend: AdminPageProps["backend"];
   onAdsChanged?: () => void;
   preFillData?: PreFillAdData | null;
@@ -1505,7 +2297,12 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
   const [deletingId, setDeletingId] = useState<bigint | null>(null);
   const [togglingId, setTogglingId] = useState<bigint | null>(null);
   const [form, setForm] = useState<AdFormData>({
-    adType: "text", title: "", description: "", imageUrl: "", linkUrl: "", isActive: true,
+    adType: "text",
+    title: "",
+    description: "",
+    imageUrl: "",
+    linkUrl: "",
+    isActive: true,
   });
 
   // Consume pre-fill data when provided (e.g. from promotion request)
@@ -1538,10 +2335,19 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
     }
   }, [backend]);
 
-  useEffect(() => { void loadAds(); }, [loadAds]);
+  useEffect(() => {
+    void loadAds();
+  }, [loadAds]);
 
   const resetForm = () => {
-    setForm({ adType: "text", title: "", description: "", imageUrl: "", linkUrl: "", isActive: true });
+    setForm({
+      adType: "text",
+      title: "",
+      description: "",
+      imageUrl: "",
+      linkUrl: "",
+      isActive: true,
+    });
     setEditingAd(null);
     setShowForm(false);
   };
@@ -1560,16 +2366,36 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
   };
 
   const handleSave = async () => {
-    if (!form.title.trim()) { toast.error("Ad title is required"); return; }
-    if (form.adType === "image" && !form.imageUrl.trim()) { toast.error("Image URL is required for image ads"); return; }
+    if (!form.title.trim()) {
+      toast.error("Ad title is required");
+      return;
+    }
+    if (form.adType === "image" && !form.imageUrl.trim()) {
+      toast.error("Image URL is required for image ads");
+      return;
+    }
 
     setIsSaving(true);
     try {
       if (editingAd) {
-        await backend.updateAd(editingAd.id, form.adType, form.title.trim(), form.description.trim(), form.imageUrl.trim(), form.linkUrl.trim(), form.isActive);
+        await backend.updateAd(
+          editingAd.id,
+          form.adType,
+          form.title.trim(),
+          form.description.trim(),
+          form.imageUrl.trim(),
+          form.linkUrl.trim(),
+          form.isActive,
+        );
         toast.success("Ad updated!");
       } else {
-        await backend.createAd(form.adType, form.title.trim(), form.description.trim(), form.imageUrl.trim(), form.linkUrl.trim());
+        await backend.createAd(
+          form.adType,
+          form.title.trim(),
+          form.description.trim(),
+          form.imageUrl.trim(),
+          form.linkUrl.trim(),
+        );
         toast.success("Ad created!");
       }
       resetForm();
@@ -1601,7 +2427,15 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
   const handleToggle = async (ad: Ad) => {
     setTogglingId(ad.id);
     try {
-      await backend.updateAd(ad.id, ad.adType, ad.title, ad.description, ad.imageUrl, ad.linkUrl, !ad.isActive);
+      await backend.updateAd(
+        ad.id,
+        ad.adType,
+        ad.title,
+        ad.description,
+        ad.imageUrl,
+        ad.linkUrl,
+        !ad.isActive,
+      );
       toast.success(ad.isActive ? "Ad deactivated" : "Ad activated");
       void loadAds();
       onAdsChanged?.();
@@ -1613,16 +2447,25 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
     }
   };
 
-  const inputStyle = { background: "oklch(0.15 0.05 285)", borderColor: "oklch(0.3 0.08 285)", color: "white" };
+  const inputStyle = {
+    background: "oklch(0.15 0.05 285)",
+    borderColor: "oklch(0.3 0.08 285)",
+    color: "white",
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-body font-bold text-foreground">{ads.length} Ads</h3>
+        <h3 className="font-body font-bold text-foreground">
+          {ads.length} Ads
+        </h3>
         <Button
           size="sm"
           className="btn-gradient text-white font-body font-semibold"
-          onClick={() => { resetForm(); setShowForm(true); }}
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
         >
           <Plus className="w-4 h-4 mr-1.5" />
           Create Ad
@@ -1630,63 +2473,138 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
       </div>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent className="font-body max-w-lg" style={{ background: "oklch(0.13 0.05 285)", border: "1px solid oklch(0.3 0.08 285)" }}>
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent
+          className="font-body max-w-lg"
+          style={{
+            background: "oklch(0.13 0.05 285)",
+            border: "1px solid oklch(0.3 0.08 285)",
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="font-display text-xl text-foreground flex items-center gap-2">
-              <Megaphone className="w-5 h-5" style={{ color: "oklch(0.7 0.22 45)" }} />
+              <Megaphone
+                className="w-5 h-5"
+                style={{ color: "oklch(0.7 0.22 45)" }}
+              />
               {editingAd ? "Edit Ad" : "Create Ad"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <FormField label="Ad Type *">
-              <Select value={form.adType} onValueChange={(v) => setForm((p) => ({ ...p, adType: v, imageUrl: "" }))}>
+              <Select
+                value={form.adType}
+                onValueChange={(v) =>
+                  setForm((p) => ({ ...p, adType: v, imageUrl: "" }))
+                }
+              >
                 <SelectTrigger style={inputStyle}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent style={{ background: "oklch(0.15 0.05 285)" }}>
                   <SelectItem value="text">
-                    <span className="flex items-center gap-2"><AlignLeft className="w-4 h-4" /> Text Ad</span>
+                    <span className="flex items-center gap-2">
+                      <AlignLeft className="w-4 h-4" /> Text Ad
+                    </span>
                   </SelectItem>
                   <SelectItem value="image">
-                    <span className="flex items-center gap-2"><Image className="w-4 h-4" /> Image Ad</span>
+                    <span className="flex items-center gap-2">
+                      <Image className="w-4 h-4" /> Image Ad
+                    </span>
                   </SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
 
             <FormField label="Title *">
-              <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Ad headline..." style={inputStyle} />
+              <Input
+                value={form.title}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, title: e.target.value }))
+                }
+                placeholder="Ad headline..."
+                style={inputStyle}
+              />
             </FormField>
 
             <FormField label="Description">
-              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Ad description or body text..." className="resize-none" rows={3} style={inputStyle} />
+              <Textarea
+                value={form.description}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, description: e.target.value }))
+                }
+                placeholder="Ad description or body text..."
+                className="resize-none"
+                rows={3}
+                style={inputStyle}
+              />
             </FormField>
 
             {form.adType === "image" && (
               <FormField label="Image URL *">
-                <Input value={form.imageUrl} onChange={(e) => setForm((p) => ({ ...p, imageUrl: e.target.value }))} placeholder="https://example.com/banner.jpg" style={inputStyle} />
+                <Input
+                  value={form.imageUrl}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, imageUrl: e.target.value }))
+                  }
+                  placeholder="https://example.com/banner.jpg"
+                  style={inputStyle}
+                />
               </FormField>
             )}
 
             <FormField label="Link URL (optional)">
-              <Input value={form.linkUrl} onChange={(e) => setForm((p) => ({ ...p, linkUrl: e.target.value }))} placeholder="https://..." style={inputStyle} />
+              <Input
+                value={form.linkUrl}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, linkUrl: e.target.value }))
+                }
+                placeholder="https://..."
+                style={inputStyle}
+              />
             </FormField>
 
             <div className="flex items-center gap-3">
-              <Switch checked={form.isActive} onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v }))} />
+              <Switch
+                checked={form.isActive}
+                onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v }))}
+              />
               <span className="font-body text-sm text-foreground/70">
-                {form.isActive ? "Active (showing on store)" : "Inactive (hidden from store)"}
+                {form.isActive
+                  ? "Active (showing on store)"
+                  : "Inactive (hidden from store)"}
               </span>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={resetForm} className="font-body text-foreground/60">Cancel</Button>
-            <Button className="btn-gradient text-white font-body font-semibold" onClick={() => void handleSave()} disabled={isSaving}>
-              {isSaving
-                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
-                : <><Save className="w-4 h-4 mr-2" />Save Ad</>
-              }
+            <Button
+              variant="ghost"
+              onClick={resetForm}
+              className="font-body text-foreground/60"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="btn-gradient text-white font-body font-semibold"
+              onClick={() => void handleSave()}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Ad
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1695,43 +2613,73 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
       {isLoading ? (
         <div className="space-y-3">
           {(["a", "b", "c"] as const).map((sk) => (
-            <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+            <Skeleton
+              key={sk}
+              className="h-16 w-full"
+              style={{ background: "oklch(0.18 0.04 285)" }}
+            />
           ))}
         </div>
       ) : ads.length === 0 ? (
         <div className="glass-card p-10 text-center">
           <Megaphone className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-body text-foreground/50 mb-4">No ads yet</p>
-          <Button className="btn-gradient text-white font-body font-semibold" size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />Create First Ad
+          <Button
+            className="btn-gradient text-white font-body font-semibold"
+            size="sm"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Create First Ad
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
           {ads.map((ad) => (
-            <div key={ad.id.toString()} className="glass-card p-4 flex items-start gap-3">
+            <div
+              key={ad.id.toString()}
+              className="glass-card p-4 flex items-start gap-3"
+            >
               {/* Type icon */}
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                 style={{
-                  background: ad.adType === "image" ? "oklch(0.55 0.2 240 / 0.15)" : "oklch(0.7 0.22 45 / 0.15)",
+                  background:
+                    ad.adType === "image"
+                      ? "oklch(0.55 0.2 240 / 0.15)"
+                      : "oklch(0.7 0.22 45 / 0.15)",
                   border: `1px solid ${ad.adType === "image" ? "oklch(0.55 0.2 240 / 0.35)" : "oklch(0.7 0.22 45 / 0.35)"}`,
                 }}
               >
-                {ad.adType === "image"
-                  ? <Image className="w-4 h-4" style={{ color: "oklch(0.65 0.2 240)" }} />
-                  : <AlignLeft className="w-4 h-4" style={{ color: "oklch(0.7 0.22 45)" }} />
-                }
+                {ad.adType === "image" ? (
+                  <Image
+                    className="w-4 h-4"
+                    style={{ color: "oklch(0.65 0.2 240)" }}
+                  />
+                ) : (
+                  <AlignLeft
+                    className="w-4 h-4"
+                    style={{ color: "oklch(0.7 0.22 45)" }}
+                  />
+                )}
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="font-body font-semibold text-foreground text-sm truncate">{ad.title}</span>
+                  <span className="font-body font-semibold text-foreground text-sm truncate">
+                    {ad.title}
+                  </span>
                   <Badge
                     className="font-body text-xs px-1.5 py-0.5"
                     style={{
-                      background: ad.adType === "image" ? "oklch(0.55 0.2 240 / 0.15)" : "oklch(0.7 0.22 45 / 0.15)",
-                      color: ad.adType === "image" ? "oklch(0.65 0.2 240)" : "oklch(0.7 0.22 45)",
+                      background:
+                        ad.adType === "image"
+                          ? "oklch(0.55 0.2 240 / 0.15)"
+                          : "oklch(0.7 0.22 45 / 0.15)",
+                      color:
+                        ad.adType === "image"
+                          ? "oklch(0.65 0.2 240)"
+                          : "oklch(0.7 0.22 45)",
                       border: `1px solid ${ad.adType === "image" ? "oklch(0.55 0.2 240 / 0.35)" : "oklch(0.7 0.22 45 / 0.35)"}`,
                     }}
                   >
@@ -1740,8 +2688,12 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
                   <Badge
                     className="font-body text-xs px-1.5 py-0.5"
                     style={{
-                      background: ad.isActive ? "oklch(0.55 0.2 145 / 0.15)" : "oklch(0.2 0.04 285 / 0.4)",
-                      color: ad.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)",
+                      background: ad.isActive
+                        ? "oklch(0.55 0.2 145 / 0.15)"
+                        : "oklch(0.2 0.04 285 / 0.4)",
+                      color: ad.isActive
+                        ? "oklch(0.65 0.2 145)"
+                        : "oklch(0.5 0.04 285)",
                       border: `1px solid ${ad.isActive ? "oklch(0.55 0.2 145 / 0.4)" : "oklch(0.3 0.04 285)"}`,
                     }}
                   >
@@ -1749,7 +2701,9 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
                   </Badge>
                 </div>
                 {ad.description && (
-                  <p className="text-foreground/50 font-body text-xs truncate">{ad.description}</p>
+                  <p className="text-foreground/50 font-body text-xs truncate">
+                    {ad.description}
+                  </p>
                 )}
                 {ad.linkUrl && (
                   <p className="text-foreground/30 font-body text-xs flex items-center gap-1 mt-0.5">
@@ -1766,15 +2720,20 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
                   onClick={() => void handleToggle(ad)}
                   disabled={togglingId === ad.id}
                   className="p-2 rounded-lg hover:bg-muted/40 transition-colors"
-                  style={{ color: ad.isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)" }}
+                  style={{
+                    color: ad.isActive
+                      ? "oklch(0.65 0.2 145)"
+                      : "oklch(0.5 0.04 285)",
+                  }}
                   title={ad.isActive ? "Deactivate" : "Activate"}
                 >
-                  {togglingId === ad.id
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : ad.isActive
-                      ? <ToggleRight className="w-4 h-4" />
-                      : <ToggleLeft className="w-4 h-4" />
-                  }
+                  {togglingId === ad.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : ad.isActive ? (
+                    <ToggleRight className="w-4 h-4" />
+                  ) : (
+                    <ToggleLeft className="w-4 h-4" />
+                  )}
                 </button>
                 {/* Edit */}
                 <button
@@ -1795,10 +2754,11 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
                   style={{ color: "oklch(0.7 0.25 25)" }}
                   title="Delete"
                 >
-                  {deletingId === ad.id
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <Trash2 className="w-4 h-4" />
-                  }
+                  {deletingId === ad.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -1812,7 +2772,11 @@ function AdsTab({ backend, onAdsChanged, preFillData, onPreFillConsumed }: {
 // ---- Memberships Tab ----
 function formatDateFromNano(nanos: bigint): string {
   const ms = Number(nanos) / 1_000_000;
-  return new Date(ms).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(ms).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function MembershipsTab({ backend }: { backend: AdminPageProps["backend"] }) {
@@ -1821,8 +2785,13 @@ function MembershipsTab({ backend }: { backend: AdminPageProps["backend"] }) {
 
   useEffect(() => {
     setIsLoading(true);
-    backend.listAllMemberships()
-      .then((data) => setMemberships(data.sort((a, b) => Number(b.purchasedAt - a.purchasedAt))))
+    backend
+      .listAllMemberships()
+      .then((data) =>
+        setMemberships(
+          data.sort((a, b) => Number(b.purchasedAt - a.purchasedAt)),
+        ),
+      )
       .catch((err) => {
         console.error(err);
         toast.error("Failed to load memberships");
@@ -1836,7 +2805,11 @@ function MembershipsTab({ backend }: { backend: AdminPageProps["backend"] }) {
     return (
       <div className="space-y-3">
         {(["a", "b", "c"] as const).map((sk) => (
-          <Skeleton key={sk} className="h-16 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+          <Skeleton
+            key={sk}
+            className="h-16 w-full"
+            style={{ background: "oklch(0.18 0.04 285)" }}
+          />
         ))}
       </div>
     );
@@ -1860,12 +2833,18 @@ function MembershipsTab({ backend }: { backend: AdminPageProps["backend"] }) {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="font-body font-semibold text-foreground text-sm">{m.customerUsername}</span>
+                  <span className="font-body font-semibold text-foreground text-sm">
+                    {m.customerUsername}
+                  </span>
                   <Badge
                     className="font-body text-xs px-1.5 py-0.5"
                     style={{
-                      background: isActive ? "oklch(0.55 0.2 145 / 0.15)" : "oklch(0.2 0.04 285 / 0.4)",
-                      color: isActive ? "oklch(0.65 0.2 145)" : "oklch(0.5 0.04 285)",
+                      background: isActive
+                        ? "oklch(0.55 0.2 145 / 0.15)"
+                        : "oklch(0.2 0.04 285 / 0.4)",
+                      color: isActive
+                        ? "oklch(0.65 0.2 145)"
+                        : "oklch(0.5 0.04 285)",
                       border: `1px solid ${isActive ? "oklch(0.55 0.2 145 / 0.4)" : "oklch(0.3 0.04 285)"}`,
                     }}
                   >
@@ -1874,11 +2853,20 @@ function MembershipsTab({ backend }: { backend: AdminPageProps["backend"] }) {
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-body text-foreground/50">
                   <span>Purchased: {formatDateFromNano(m.purchasedAt)}</span>
-                  <span style={{ color: isActive ? "oklch(0.65 0.2 145)" : "oklch(0.7 0.25 25)" }}>
+                  <span
+                    style={{
+                      color: isActive
+                        ? "oklch(0.65 0.2 145)"
+                        : "oklch(0.7 0.25 25)",
+                    }}
+                  >
                     Expires: {formatDateFromNano(m.expiresAt)}
                   </span>
                   <span>💳 {m.paymentMethod}</span>
-                  <span className="font-mono text-foreground/40 max-w-32 truncate" title={m.paymentReference}>
+                  <span
+                    className="font-mono text-foreground/40 max-w-32 truncate"
+                    title={m.paymentReference}
+                  >
                     Ref: {m.paymentReference}
                   </span>
                 </div>
@@ -1925,7 +2913,9 @@ function PromotionRequestsTab({
     }
   }, [backend]);
 
-  useEffect(() => { void loadRequests(); }, [loadRequests]);
+  useEffect(() => {
+    void loadRequests();
+  }, [loadRequests]);
 
   const handleUpdateStatus = async (id: bigint, status: string) => {
     setUpdatingId(id);
@@ -1968,7 +2958,11 @@ function PromotionRequestsTab({
     return (
       <div className="space-y-3">
         {(["a", "b", "c"] as const).map((sk) => (
-          <Skeleton key={sk} className="h-24 w-full" style={{ background: "oklch(0.18 0.04 285)" }} />
+          <Skeleton
+            key={sk}
+            className="h-24 w-full"
+            style={{ background: "oklch(0.18 0.04 285)" }}
+          />
         ))}
       </div>
     );
@@ -1978,7 +2972,9 @@ function PromotionRequestsTab({
     return (
       <div className="glass-card p-10 text-center">
         <TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-30" />
-        <p className="font-body text-foreground/50">No promotion requests yet</p>
+        <p className="font-body text-foreground/50">
+          No promotion requests yet
+        </p>
       </div>
     );
   }
@@ -1997,21 +2993,33 @@ function PromotionRequestsTab({
                   {/* Type badge */}
                   <span
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-body text-xs font-semibold"
-                    style={isYoutube
-                      ? { background: "oklch(0.65 0.25 25 / 0.15)", color: "oklch(0.75 0.22 25)", border: "1px solid oklch(0.65 0.25 25 / 0.4)" }
-                      : { background: "oklch(0.55 0.2 240 / 0.15)", color: "oklch(0.7 0.18 240)", border: "1px solid oklch(0.55 0.2 240 / 0.4)" }
+                    style={
+                      isYoutube
+                        ? {
+                            background: "oklch(0.65 0.25 25 / 0.15)",
+                            color: "oklch(0.75 0.22 25)",
+                            border: "1px solid oklch(0.65 0.25 25 / 0.4)",
+                          }
+                        : {
+                            background: "oklch(0.55 0.2 240 / 0.15)",
+                            color: "oklch(0.7 0.18 240)",
+                            border: "1px solid oklch(0.55 0.2 240 / 0.4)",
+                          }
                     }
                   >
-                    {isYoutube
-                      ? <Youtube className="w-3 h-3" />
-                      : <Building2 className="w-3 h-3" />
-                    }
+                    {isYoutube ? (
+                      <Youtube className="w-3 h-3" />
+                    ) : (
+                      <Building2 className="w-3 h-3" />
+                    )}
                     {isYoutube ? "YouTube" : "Business"}
                   </span>
                   {/* Status badge */}
                   <StatusBadge status={req.status} />
                   {/* Submitter */}
-                  <span className="font-body text-xs text-foreground/50">👤 {req.submitterUsername}</span>
+                  <span className="font-body text-xs text-foreground/50">
+                    👤 {req.submitterUsername}
+                  </span>
                 </div>
 
                 {/* Action buttons */}
@@ -2020,22 +3028,40 @@ function PromotionRequestsTab({
                     <>
                       <Button
                         size="sm"
-                        onClick={() => void handleUpdateStatus(req.id, "accepted")}
+                        onClick={() =>
+                          void handleUpdateStatus(req.id, "accepted")
+                        }
                         disabled={updatingId === req.id}
                         className="font-body font-semibold text-white text-xs"
-                        style={{ background: "oklch(0.55 0.2 145)", boxShadow: "none" }}
+                        style={{
+                          background: "oklch(0.55 0.2 145)",
+                          boxShadow: "none",
+                        }}
                       >
-                        {updatingId === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        {updatingId === req.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
                         <span className="ml-1">Accept</span>
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => void handleUpdateStatus(req.id, "declined")}
+                        onClick={() =>
+                          void handleUpdateStatus(req.id, "declined")
+                        }
                         disabled={updatingId === req.id}
                         className="font-body font-semibold text-white text-xs"
-                        style={{ background: "oklch(0.65 0.25 25)", boxShadow: "none" }}
+                        style={{
+                          background: "oklch(0.65 0.25 25)",
+                          boxShadow: "none",
+                        }}
                       >
-                        {updatingId === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                        {updatingId === req.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <X className="w-3.5 h-3.5" />
+                        )}
                         <span className="ml-1">Decline</span>
                       </Button>
                     </>
@@ -2046,23 +3072,34 @@ function PromotionRequestsTab({
                     onClick={() => void handleCreateAdFromPromotion(req)}
                     className="font-body font-semibold text-white text-xs"
                     style={{
-                      background: copiedId === req.id
-                        ? "oklch(0.55 0.2 145 / 0.8)"
-                        : "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.8), oklch(0.55 0.2 285 / 0.8))",
+                      background:
+                        copiedId === req.id
+                          ? "oklch(0.55 0.2 145 / 0.8)"
+                          : "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.8), oklch(0.55 0.2 285 / 0.8))",
                       boxShadow: "none",
                     }}
                   >
-                    {copiedId === req.id
-                      ? <><ClipboardCheck className="w-3.5 h-3.5" /><span className="ml-1">Copied!</span></>
-                      : <><Copy className="w-3.5 h-3.5" /><span className="ml-1">Create Ad</span></>
-                    }
+                    {copiedId === req.id ? (
+                      <>
+                        <ClipboardCheck className="w-3.5 h-3.5" />
+                        <span className="ml-1">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span className="ml-1">Create Ad</span>
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
 
               {/* Link */}
               <div className="flex items-center gap-2">
-                <ExternalLink className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.62 0.27 355 / 0.6)" }} />
+                <ExternalLink
+                  className="w-3.5 h-3.5 shrink-0"
+                  style={{ color: "oklch(0.62 0.27 355 / 0.6)" }}
+                />
                 <a
                   href={req.link}
                   target="_blank"
@@ -2075,7 +3112,9 @@ function PromotionRequestsTab({
               </div>
 
               {/* Description */}
-              <p className="text-foreground/60 font-body text-sm leading-relaxed">{req.description}</p>
+              <p className="text-foreground/60 font-body text-sm leading-relaxed">
+                {req.description}
+              </p>
 
               {/* Image (if any) */}
               {req.imageUrl && (
@@ -2085,9 +3124,14 @@ function PromotionRequestsTab({
                     alt="Promotion"
                     className="w-16 h-16 rounded-lg object-cover shrink-0"
                     style={{ border: "1px solid oklch(0.3 0.08 285)" }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        "none";
+                    }}
                   />
-                  <span className="font-body text-xs text-foreground/40 truncate">{req.imageUrl}</span>
+                  <span className="font-body text-xs text-foreground/40 truncate">
+                    {req.imageUrl}
+                  </span>
                 </div>
               )}
             </div>
@@ -2099,7 +3143,10 @@ function PromotionRequestsTab({
 }
 
 // ---- Helper ----
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  children,
+}: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label className="font-body text-sm text-foreground/60">{label}</Label>
@@ -2109,10 +3156,16 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 }
 
 // ---- Main AdminPage ----
-export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps) {
+export function AdminPage({
+  onNavigate,
+  backend,
+  onAdsChanged,
+}: AdminPageProps) {
   const [isAuthed, setIsAuthed] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>("orders");
-  const [adPreFillData, setAdPreFillData] = useState<PreFillAdData | null>(null);
+  const [adPreFillData, setAdPreFillData] = useState<PreFillAdData | null>(
+    null,
+  );
 
   const handlePinSuccess = () => {
     setIsAuthed(true);
@@ -2124,18 +3177,51 @@ export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps)
   };
 
   if (!isAuthed) {
-    return <PinGate onSuccess={handlePinSuccess} onCancel={() => onNavigate("store")} />;
+    return (
+      <PinGate
+        onSuccess={handlePinSuccess}
+        onCancel={() => onNavigate("store")}
+      />
+    );
   }
 
-  const TAB_CONFIG: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
-    { id: "orders", label: "Orders", icon: <ShoppingBag className="w-4 h-4" /> },
-    { id: "products", label: "Products", icon: <Package className="w-4 h-4" /> },
-    { id: "subscriptions", label: "Subs", icon: <ChevronRight className="w-4 h-4" /> },
-    { id: "payments", label: "Payments", icon: <CreditCard className="w-4 h-4" /> },
+  const TAB_CONFIG: Array<{
+    id: AdminTab;
+    label: string;
+    icon: React.ReactNode;
+  }> = [
+    {
+      id: "orders",
+      label: "Orders",
+      icon: <ShoppingBag className="w-4 h-4" />,
+    },
+    {
+      id: "products",
+      label: "Products",
+      icon: <Package className="w-4 h-4" />,
+    },
+    {
+      id: "subscriptions",
+      label: "Subs",
+      icon: <ChevronRight className="w-4 h-4" />,
+    },
+    {
+      id: "payments",
+      label: "Payments",
+      icon: <CreditCard className="w-4 h-4" />,
+    },
     { id: "coupons", label: "Coupons", icon: <Tag className="w-4 h-4" /> },
     { id: "ads", label: "Ads", icon: <Megaphone className="w-4 h-4" /> },
-    { id: "memberships", label: "Members", icon: <Users className="w-4 h-4" /> },
-    { id: "promotions", label: "Promos", icon: <TrendingUp className="w-4 h-4" /> },
+    {
+      id: "memberships",
+      label: "Members",
+      icon: <Users className="w-4 h-4" />,
+    },
+    {
+      id: "promotions",
+      label: "Promos",
+      icon: <TrendingUp className="w-4 h-4" />,
+    },
   ];
 
   return (
@@ -2149,15 +3235,26 @@ export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps)
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-lg flex items-center justify-center"
-              style={{ background: "oklch(0.62 0.27 355 / 0.2)", border: "1px solid oklch(0.62 0.27 355 / 0.4)" }}
+              style={{
+                background: "oklch(0.62 0.27 355 / 0.2)",
+                border: "1px solid oklch(0.62 0.27 355 / 0.4)",
+              }}
             >
-              <ShieldCheck className="w-5 h-5" style={{ color: "oklch(0.62 0.27 355)" }} />
+              <ShieldCheck
+                className="w-5 h-5"
+                style={{ color: "oklch(0.62 0.27 355)" }}
+              />
             </div>
             <div>
-              <h1 className="font-display text-3xl text-white" style={{ textShadow: "0 0 15px oklch(0.62 0.27 355 / 0.4)" }}>
+              <h1
+                className="font-display text-3xl text-white"
+                style={{ textShadow: "0 0 15px oklch(0.62 0.27 355 / 0.4)" }}
+              >
                 Admin Panel
               </h1>
-              <p className="text-foreground/40 font-body text-xs">Game Vault Management</p>
+              <p className="text-foreground/40 font-body text-xs">
+                Game Vault Management
+              </p>
             </div>
           </div>
           <button
@@ -2171,7 +3268,11 @@ export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps)
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AdminTab)} style={{ animation: "fade-in-up 0.4s 0.1s ease-out both" }}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as AdminTab)}
+          style={{ animation: "fade-in-up 0.4s 0.1s ease-out both" }}
+        >
           <TabsList
             className="w-full mb-6 h-auto flex-wrap gap-1 p-1 font-body"
             style={{ background: "oklch(0.12 0.04 285)" }}
@@ -2217,7 +3318,10 @@ export function AdminPage({ onNavigate, backend, onAdsChanged }: AdminPageProps)
               <MembershipsTab backend={backend} />
             </TabsContent>
             <TabsContent value="promotions">
-              <PromotionRequestsTab backend={backend} onPreFillAd={handlePreFillAd} />
+              <PromotionRequestsTab
+                backend={backend}
+                onPreFillAd={handlePreFillAd}
+              />
             </TabsContent>
           </div>
         </Tabs>

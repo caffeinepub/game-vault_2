@@ -1,25 +1,20 @@
 # Game Vault
 
 ## Current State
-Full e-commerce store for digital gaming products. Users can register, browse products, checkout, and view orders in their dashboard. Admins can attach .lua and .apk files to products. When an order is accepted, a download section should appear in the user's order history. The download button is currently broken and does not appear.
+The loading screen (`LoadingScreen.tsx`) is an Xbox One-style boot sequence (Xbox green background, "G" logo, "Game Vault" text, startup chime) that runs for 35 seconds before calling `onComplete` to transition to the store. There is no way for users to skip it.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Backend: a new `getOrderDownloadFiles(customerUsername, orderId)` query that takes a username + orderId, finds the matching order, looks up the product by name, and returns the list of files for that product — no permission check blocking anonymous callers
-- Backend: remove the `#user` permission check from `downloadProductFile` so any logged-in user who has an accepted order for that product can download
+- A "Skip" button visible on the loading screen that, when clicked, immediately calls `onComplete` and transitions to the store.
 
 ### Modify
-- Backend `downloadProductFile`: remove the `AccessControl.hasPermission` check that blocks all non-admin callers; keep the purchase verification (check that the caller's profile username has an accepted order for this product's name)
-- Frontend `DashboardPage`: fix `canDownload` condition — remove the `products.length > 0` dependency; instead always render `OrderDownloadSection` for accepted orders and pass the product lookup directly by name via the backend `listProductFiles` call using the product name
-- Frontend `OrderDownloadSection`: instead of requiring products array + matching by name, call `listProductFiles` using a new prop `productName` lookup against the products list; if no product found by name, still attempt to render (show nothing) without crashing
+- `LoadingScreen.tsx`: Add a skip button (bottom-center of screen) that clears all pending timers and calls `onComplete` immediately.
 
 ### Remove
-- Nothing removed
+- Nothing removed.
 
 ## Implementation Plan
-1. Regenerate backend to fix `downloadProductFile` — remove `AccessControl.hasPermission` check, keep purchase ownership check using caller's profile
-2. Update frontend `DashboardPage`:
-   - Remove `products.length > 0` from `canDownload` check — only require `isAccepted && onListProductFiles && onDownloadFile`
-   - The `OrderDownloadSection` already handles the "no product found" case by returning null
-3. The `OrderDownloadSection` product lookup by name should also try case-insensitive trimmed match (already does lowercase, ensure it trims whitespace)
+1. Add a `useRef` to hold the timer IDs so they can be cleared on skip.
+2. Extract the `skip` handler: clear all timers, close audio context, fade out immediately, call `onComplete`.
+3. Render a "Skip" button in the bottom-center of the loading screen with subtle styling matching the Xbox green theme (white text, semi-transparent background).

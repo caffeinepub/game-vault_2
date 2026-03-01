@@ -10,6 +10,7 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [textOpacity, setTextOpacity] = useState(0);
   const [textGlow, setTextGlow] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // ── Web Audio: Xbox One startup chime ────────────────────────────────────
   const playChime = useCallback(() => {
@@ -21,7 +22,11 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
       masterGain.gain.setValueAtTime(0.3, ctx.currentTime);
       masterGain.connect(ctx.destination);
 
-      const playNote = (freq: number, startOffset: number, duration: number) => {
+      const playNote = (
+        freq: number,
+        startOffset: number,
+        duration: number,
+      ) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
@@ -48,13 +53,22 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
     }
   }, []);
 
+  // ── Skip handler ─────────────────────────────────────────────────────────
+  const handleSkip = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    audioCtxRef.current?.close();
+    setRootOpacity(0);
+    setTimeout(() => onComplete(), 600);
+  }, [onComplete]);
+
   // ── Phase timeline (35s total) ───────────────────────────────────────────
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     // 0s → G fades in over 1.5s
     timers.push(
-      setTimeout(() => setLogoOpacity(1), 50) // near-instant trigger so CSS transition kicks in
+      setTimeout(() => setLogoOpacity(1), 50), // near-instant trigger so CSS transition kicks in
     );
 
     // 3s → play chime
@@ -70,11 +84,13 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
     timers.push(
       setTimeout(() => {
         setRootOpacity(0);
-      }, 32000)
+      }, 32000),
     );
 
     // 35s → complete
     timers.push(setTimeout(() => onComplete(), 35000));
+
+    timersRef.current = timers;
 
     return () => {
       timers.forEach(clearTimeout);
@@ -142,7 +158,10 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
           style={{
             opacity: logoOpacity,
             transition: "opacity 1.5s ease-out",
-            animation: logoOpacity === 1 ? "g-pulse 4s ease-in-out 1.5s infinite" : undefined,
+            animation:
+              logoOpacity === 1
+                ? "g-pulse 4s ease-in-out 1.5s infinite"
+                : undefined,
             userSelect: "none",
           }}
         >
@@ -175,7 +194,9 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
             textTransform: "uppercase",
             opacity: textOpacity,
             transition: "opacity 2s ease-out",
-            animation: textGlow ? "glow-breathe-white 4s ease-in-out infinite" : undefined,
+            animation: textGlow
+              ? "glow-breathe-white 4s ease-in-out infinite"
+              : undefined,
             textShadow: textOpacity
               ? "0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(255,255,255,0.3)"
               : undefined,
@@ -185,6 +206,44 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
           Game Vault
         </h1>
       </div>
+
+      {/* ── Skip button ──────────────────────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={handleSkip}
+        style={{
+          position: "absolute",
+          bottom: "48px",
+          right: "48px",
+          background: "rgba(255, 255, 255, 0.15)",
+          border: "1px solid rgba(255, 255, 255, 0.4)",
+          borderRadius: "6px",
+          color: "#FFFFFF",
+          fontFamily: "'Segoe UI', Arial, sans-serif",
+          fontWeight: 400,
+          fontSize: "0.95rem",
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          padding: "10px 28px",
+          cursor: "pointer",
+          backdropFilter: "blur(4px)",
+          transition: "background 0.2s ease, border-color 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background =
+            "rgba(255,255,255,0.28)";
+          (e.currentTarget as HTMLButtonElement).style.borderColor =
+            "rgba(255,255,255,0.7)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background =
+            "rgba(255,255,255,0.15)";
+          (e.currentTarget as HTMLButtonElement).style.borderColor =
+            "rgba(255,255,255,0.4)";
+        }}
+      >
+        Skip
+      </button>
     </div>
   );
 }

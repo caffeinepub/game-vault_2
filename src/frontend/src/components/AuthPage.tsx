@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import type { UserProfile } from "@/backend.d";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, UserCircle, Mail, User, LogIn } from "lucide-react";
-import { toast } from "sonner";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import type { Page } from "@/types";
-import type { UserProfile } from "@/backend.d";
+import { Loader2, LogIn, Mail, User, UserCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface AuthPageProps {
   onNavigate: (page: Page) => void;
@@ -16,8 +16,14 @@ interface AuthPageProps {
   onSetUserProfile: (profile: UserProfile) => void;
 }
 
-export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfile }: AuthPageProps) {
-  const { login, loginStatus, identity, isInitializing } = useInternetIdentity();
+export function AuthPage({
+  onNavigate,
+  onRegister,
+  onLoginLookup,
+  onSetUserProfile,
+}: AuthPageProps) {
+  const { login, loginStatus, identity, isInitializing } =
+    useInternetIdentity();
 
   const [regUsername, setRegUsername] = useState("");
   const [regEmail, setRegEmail] = useState("");
@@ -50,7 +56,13 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
       .finally(() => {
         setIsAutoLoggingIn(false);
       });
-  }, [isInitializing, isConnected, onLoginLookup, onSetUserProfile, onNavigate]);
+  }, [
+    isInitializing,
+    isConnected,
+    onLoginLookup,
+    onSetUserProfile,
+    onNavigate,
+  ]);
 
   const handleConnect = async () => {
     try {
@@ -81,14 +93,22 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
     setIsRegistering(true);
     try {
       await onRegister(regUsername.trim(), regEmail.trim());
-      onSetUserProfile({ username: regUsername.trim(), email: regEmail.trim() });
+      onSetUserProfile({
+        username: regUsername.trim(),
+        email: regEmail.trim(),
+      });
       toast.success("Account created! Welcome to Game Vault 🎮");
       onNavigate("store");
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : String(err);
-      if (message.toLowerCase().includes("already exists") || message.toLowerCase().includes("already taken")) {
-        toast.error("That username is already taken. Please choose a different one.");
+      if (
+        message.toLowerCase().includes("already exists") ||
+        message.toLowerCase().includes("already taken")
+      ) {
+        toast.error(
+          "That username is already taken. Please choose a different one.",
+        );
       } else {
         toast.error("Registration failed. Please try again.");
       }
@@ -111,7 +131,9 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
         toast.success(`Welcome back, ${profile.username}! 🎮`);
         onNavigate("store");
       } else {
-        toast.error("No account found for this identity. Please register instead.");
+        toast.error(
+          "No account found for this identity. Please register instead.",
+        );
       }
     } catch (err) {
       console.error(err);
@@ -125,9 +147,14 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: "oklch(0.62 0.27 355)" }} />
+          <Loader2
+            className="w-8 h-8 animate-spin"
+            style={{ color: "oklch(0.62 0.27 355)" }}
+          />
           {isAutoLoggingIn && (
-            <p className="text-foreground/50 font-body text-sm">Signing you in...</p>
+            <p className="text-foreground/50 font-body text-sm">
+              Signing you in...
+            </p>
           )}
         </div>
       </div>
@@ -155,7 +182,13 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
         <div className="glass-card p-6 sm:p-8">
           {/* Identity connection */}
           {!isConnected && (
-            <div className="mb-6 p-4 rounded-lg text-center" style={{ background: "oklch(0.62 0.27 355 / 0.1)", border: "1px solid oklch(0.62 0.27 355 / 0.3)" }}>
+            <div
+              className="mb-6 p-4 rounded-lg text-center"
+              style={{
+                background: "oklch(0.62 0.27 355 / 0.1)",
+                border: "1px solid oklch(0.62 0.27 355 / 0.3)",
+              }}
+            >
               <p className="text-foreground/70 font-body text-sm mb-3">
                 First, connect your identity to get started
               </p>
@@ -165,9 +198,15 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
                 disabled={isConnecting}
               >
                 {isConnecting ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Connecting...</>
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
                 ) : (
-                  <><LogIn className="w-4 h-4 mr-2" />Connect Identity</>
+                  <>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Connect Identity
+                  </>
                 )}
               </Button>
             </div>
@@ -176,16 +215,24 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
           {isConnected && (
             <div
               className="mb-6 p-3 rounded-lg flex items-center gap-3"
-              style={{ background: "oklch(0.55 0.2 145 / 0.1)", border: "1px solid oklch(0.55 0.2 145 / 0.3)" }}
+              style={{
+                background: "oklch(0.55 0.2 145 / 0.1)",
+                border: "1px solid oklch(0.55 0.2 145 / 0.3)",
+              }}
             >
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
                 style={{ background: "oklch(0.55 0.2 145 / 0.2)" }}
               >
-                <UserCircle className="w-4 h-4" style={{ color: "oklch(0.65 0.2 145)" }} />
+                <UserCircle
+                  className="w-4 h-4"
+                  style={{ color: "oklch(0.65 0.2 145)" }}
+                />
               </div>
               <div>
-                <p className="font-body text-xs text-foreground/50">Connected as</p>
+                <p className="font-body text-xs text-foreground/50">
+                  Connected as
+                </p>
                 <p className="font-body text-sm text-foreground font-medium truncate max-w-48">
                   {identity.getPrincipal().toString().slice(0, 20)}...
                 </p>
@@ -198,14 +245,19 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
               className="w-full mb-6 font-body"
               style={{ background: "oklch(0.1 0.04 285)" }}
             >
-              <TabsTrigger value="login" className="flex-1 font-body">Login</TabsTrigger>
-              <TabsTrigger value="register" className="flex-1 font-body">Register</TabsTrigger>
+              <TabsTrigger value="login" className="flex-1 font-body">
+                Login
+              </TabsTrigger>
+              <TabsTrigger value="register" className="flex-1 font-body">
+                Register
+              </TabsTrigger>
             </TabsList>
 
             {/* Login tab */}
             <TabsContent value="login" className="space-y-6">
               <p className="text-foreground/60 font-body text-sm">
-                Already have an account? Connect your identity and we'll look up your profile.
+                Already have an account? Connect your identity and we'll look up
+                your profile.
               </p>
 
               <Button
@@ -214,9 +266,15 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
                 disabled={isLoggingIn || !isConnected}
               >
                 {isLoggingIn ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Looking up account...</>
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Looking up account...
+                  </>
                 ) : (
-                  <><LogIn className="w-4 h-4 mr-2" />Login</>
+                  <>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Login
+                  </>
                 )}
               </Button>
 
@@ -226,7 +284,9 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
                   type="button"
                   className="underline hover:text-foreground/70 transition-colors"
                   onClick={() => {
-                    const trigger = document.querySelector('[data-value="register"]') as HTMLButtonElement | null;
+                    const trigger = document.querySelector(
+                      '[data-value="register"]',
+                    ) as HTMLButtonElement | null;
                     trigger?.click();
                   }}
                 >
@@ -239,7 +299,10 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
             <TabsContent value="register" className="space-y-4">
               <div className="space-y-2">
                 <Label className="font-body text-sm text-foreground/70 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5" style={{ color: "oklch(0.62 0.27 355)" }} />
+                  <User
+                    className="w-3.5 h-3.5"
+                    style={{ color: "oklch(0.62 0.27 355)" }}
+                  />
                   Username
                 </Label>
                 <Input
@@ -257,7 +320,10 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
 
               <div className="space-y-2">
                 <Label className="font-body text-sm text-foreground/70 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5" style={{ color: "oklch(0.62 0.27 355)" }} />
+                  <Mail
+                    className="w-3.5 h-3.5"
+                    style={{ color: "oklch(0.62 0.27 355)" }}
+                  />
                   Email Address
                 </Label>
                 <Input
@@ -283,9 +349,15 @@ export function AuthPage({ onNavigate, onRegister, onLoginLookup, onSetUserProfi
                 disabled={isRegistering || !isConnected}
               >
                 {isRegistering ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating account...</>
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating account...
+                  </>
                 ) : (
-                  <><UserCircle className="w-4 h-4 mr-2" />Create Account</>
+                  <>
+                    <UserCircle className="w-4 h-4 mr-2" />
+                    Create Account
+                  </>
                 )}
               </Button>
             </TabsContent>
