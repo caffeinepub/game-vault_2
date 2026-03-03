@@ -2,7 +2,13 @@ import type { UserProfile } from "@/backend.d";
 import { AuroraMenu } from "@/components/AuroraMenu";
 import { Button } from "@/components/ui/button";
 import type { Page } from "@/types";
-import { Gamepad2, Menu, ShoppingBag, UserCircle } from "lucide-react";
+import {
+  Gamepad2,
+  Menu,
+  ShoppingBag,
+  ShoppingCart,
+  UserCircle,
+} from "lucide-react";
 
 interface NavbarProps {
   currentPage: Page;
@@ -12,6 +18,7 @@ interface NavbarProps {
   onLogout: () => void;
   isMenuOpen: boolean;
   onMenuToggle: () => void;
+  basketCount?: number;
 }
 
 export function Navbar({
@@ -22,6 +29,7 @@ export function Navbar({
   onLogout,
   isMenuOpen,
   onMenuToggle,
+  basketCount = 0,
 }: NavbarProps) {
   return (
     <>
@@ -108,6 +116,44 @@ export function Navbar({
                 </Button>
               )}
 
+              {/* Basket button */}
+              <button
+                type="button"
+                onClick={() => onNavigate("basket")}
+                data-ocid="basket.button"
+                className="relative p-2 rounded-lg transition-all"
+                aria-label={`View basket${basketCount > 0 ? ` (${basketCount} items)` : ""}`}
+                style={{
+                  background:
+                    currentPage === "basket"
+                      ? "oklch(0.7 0.22 45 / 0.15)"
+                      : "oklch(0.15 0.05 285)",
+                  border: `1px solid ${currentPage === "basket" ? "oklch(0.7 0.22 45 / 0.6)" : "oklch(0.62 0.27 355 / 0.25)"}`,
+                  color:
+                    currentPage === "basket"
+                      ? "oklch(0.7 0.22 45)"
+                      : "oklch(0.7 0.04 285)",
+                  boxShadow:
+                    currentPage === "basket"
+                      ? "0 0 12px oklch(0.7 0.22 45 / 0.3)"
+                      : "none",
+                }}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                {basketCount > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center font-body font-bold text-[10px] px-1"
+                    style={{
+                      background: "oklch(0.62 0.27 355)",
+                      color: "white",
+                      boxShadow: "0 0 8px oklch(0.62 0.27 355 / 0.6)",
+                    }}
+                  >
+                    {basketCount > 99 ? "99+" : basketCount}
+                  </span>
+                )}
+              </button>
+
               {/* Aurora Menu Trigger */}
               <button
                 type="button"
@@ -143,6 +189,7 @@ export function Navbar({
         userProfile={userProfile}
         onLogout={onLogout}
         onAdminClick={onAdminClick}
+        basketCount={basketCount}
       />
     </>
   );

@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { CheckoutItem, Page } from "@/types";
+import type { BasketItem, CheckoutItem, Page } from "@/types";
 import {
   ArrowLeft,
   Building2,
@@ -36,6 +36,7 @@ import {
   Megaphone,
   Search,
   ShoppingBag,
+  ShoppingCart,
   Star,
   X,
   Youtube,
@@ -53,6 +54,7 @@ interface StorePageProps {
   onNavigate: (page: Page, data?: unknown) => void;
   onSelectProduct: (product: Product) => void;
   onSelectCheckoutItem: (item: CheckoutItem) => void;
+  onAddToBasket: (item: Omit<BasketItem, "quantity">) => void;
   userProfile: { username: string; email: string } | null;
   activeAds?: Ad[];
   hasActiveMembership?: boolean;
@@ -99,6 +101,7 @@ export function StorePage({
   onNavigate,
   onSelectProduct,
   onSelectCheckoutItem,
+  onAddToBasket,
   userProfile,
   activeAds = [],
   hasActiveMembership = false,
@@ -406,6 +409,18 @@ export function StorePage({
                     });
                     onNavigate("checkout");
                   }}
+                  onAddToBasket={() => {
+                    if (!userProfile) {
+                      onNavigate("auth");
+                      return;
+                    }
+                    onAddToBasket({
+                      id: product.id,
+                      name: product.name,
+                      price: product.price,
+                    });
+                    toast.success(`${product.name} added to basket!`);
+                  }}
                 />
               ))}
             </div>
@@ -494,6 +509,18 @@ export function StorePage({
                       });
                       onNavigate("checkout");
                     }}
+                    onAddToBasket={() => {
+                      if (!userProfile) {
+                        onNavigate("auth");
+                        return;
+                      }
+                      onAddToBasket({
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                      });
+                      toast.success(`${product.name} added to basket!`);
+                    }}
                   />
                 ))}
             </div>
@@ -581,6 +608,18 @@ export function StorePage({
                         price: product.price,
                       });
                       onNavigate("checkout");
+                    }}
+                    onAddToBasket={() => {
+                      if (!userProfile) {
+                        onNavigate("auth");
+                        return;
+                      }
+                      onAddToBasket({
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                      });
+                      toast.success(`${product.name} added to basket!`);
                     }}
                   />
                 ))}
@@ -877,11 +916,13 @@ function ProductCard({
   index,
   onViewDetail,
   onBuyNow,
+  onAddToBasket,
 }: {
   product: Product;
   index: number;
   onViewDetail: () => void;
   onBuyNow: () => void;
+  onAddToBasket: () => void;
 }) {
   return (
     <article
@@ -949,9 +990,9 @@ function ProductCard({
           {product.description || "Digital gaming content"}
         </p>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <span
-            className="font-display text-xl"
+            className="font-display text-xl shrink-0"
             style={{
               color: "oklch(0.85 0.19 85)",
               textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)",
@@ -959,13 +1000,31 @@ function ProductCard({
           >
             {formatPrice(product.price)}
           </span>
-          <Button
-            size="sm"
-            className="btn-gradient text-white font-body font-semibold text-xs"
-            onClick={onBuyNow}
-          >
-            Buy Now
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onAddToBasket}
+              data-ocid="store.button"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+              style={{
+                background: "oklch(0.7 0.22 45 / 0.15)",
+                border: "1px solid oklch(0.7 0.22 45 / 0.4)",
+                color: "oklch(0.7 0.22 45)",
+              }}
+              title="Add to basket"
+              aria-label={`Add ${product.name} to basket`}
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+            </button>
+            <Button
+              size="sm"
+              className="btn-gradient text-white font-body font-semibold text-xs"
+              onClick={onBuyNow}
+              data-ocid="store.primary_button"
+            >
+              Buy Now
+            </Button>
+          </div>
         </div>
       </div>
     </article>

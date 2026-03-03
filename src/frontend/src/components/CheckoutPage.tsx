@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActor } from "@/hooks/useActor";
-import type { CheckoutItem, Page } from "@/types";
+import type { BasketItem, Page } from "@/types";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -11,6 +11,7 @@ import {
   Copy,
   Loader2,
   Mail,
+  ShoppingCart,
   Tag,
   X,
 } from "lucide-react";
@@ -19,7 +20,7 @@ import { SiBitcoin, SiEthereum, SiPaypal } from "react-icons/si";
 import { toast } from "sonner";
 
 interface CheckoutPageProps {
-  item: CheckoutItem;
+  items: BasketItem[];
   paymentSettings: PaymentSettings | null;
   onNavigate: (page: Page) => void;
   onPlaceOrder: (
@@ -30,6 +31,7 @@ interface CheckoutPageProps {
     couponCode: string | null,
     deliveryEmail: string,
   ) => Promise<bigint>;
+  onClearBasket: () => void;
   userProfile: { username: string; email: string } | null;
 }
 
@@ -111,10 +113,11 @@ const PAYMENT_OPTIONS: PaymentOption[] = [
 ];
 
 export function CheckoutPage({
-  item,
+  items,
   paymentSettings,
   onNavigate,
   onPlaceOrder,
+  onClearBasket,
   userProfile,
 }: CheckoutPageProps) {
   const { actor } = useActor();
@@ -142,15 +145,20 @@ export function CheckoutPage({
   } | null>(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
-  // Calculate discounted price
-  const discountedPrice = (() => {
-    if (!appliedCoupon) return item.price;
+  // Calculate totals
+  const baseTotal = items.reduce(
+    (sum, item) => sum + item.price * BigInt(item.quantity),
+    0n,
+  );
+
+  const discountedTotal = (() => {
+    if (!appliedCoupon) return baseTotal;
     if (appliedCoupon.discountType === "percentage") {
       const discounted =
-        item.price - (item.price * appliedCoupon.discountValue) / 100n;
+        baseTotal - (baseTotal * appliedCoupon.discountValue) / 100n;
       return discounted < 0n ? 0n : discounted;
     }
-    const discounted = item.price - appliedCoupon.discountValue;
+    const discounted = baseTotal - appliedCoupon.discountValue;
     return discounted < 0n ? 0n : discounted;
   })();
 
@@ -224,15 +232,21 @@ export function CheckoutPage({
 
     setIsPlacing(true);
     try {
+      // Combine all items into one order
+      const combinedName = items
+        .map((i) => (i.quantity > 1 ? `${i.name} ×${i.quantity}` : i.name))
+        .join(", ");
+
       const id = await onPlaceOrder(
-        item.name,
-        item.price,
+        combinedName,
+        discountedTotal,
         selectedMethod,
         paymentRef.trim(),
         appliedCoupon?.code ?? null,
         deliveryEmail.trim(),
       );
       setOrderId(id);
+
       // Save email to profile if it changed
       if (deliveryEmail.trim() !== userProfile.email && actor) {
         try {
@@ -244,6 +258,8 @@ export function CheckoutPage({
           console.error("Failed to save email to profile:", saveErr);
         }
       }
+
+      onClearBasket();
       toast.success("Order placed successfully!");
     } catch (err) {
       console.error(err);
@@ -275,6 +291,7 @@ export function CheckoutPage({
         <div
           className="glass-card p-10 max-w-md w-full text-center"
           style={{ animation: "scale-in 0.4s ease-out both" }}
+          data-ocid="checkout.success_state"
         >
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
@@ -343,6 +360,7 @@ export function CheckoutPage({
             <Button
               className="btn-gradient text-white font-body font-semibold w-full"
               onClick={() => onNavigate("dashboard")}
+              data-ocid="checkout.primary_button"
             >
               View My Orders
             </Button>
@@ -350,6 +368,7 @@ export function CheckoutPage({
               variant="ghost"
               className="font-body text-foreground/60 hover:text-foreground"
               onClick={() => onNavigate("store")}
+              data-ocid="checkout.secondary_button"
             >
               Continue Shopping
             </Button>
@@ -360,16 +379,17 @@ export function CheckoutPage({
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" data-ocid="checkout.page">
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         {/* Back button */}
         <button
           type="button"
-          onClick={() => onNavigate("store")}
+          onClick={() => onNavigate("basket")}
+          data-ocid="checkout.link"
           className="flex items-center gap-2 text-foreground/60 hover:text-foreground font-body text-sm mb-8 transition-colors group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back to Store
+          Back to Basket
         </button>
 
         <h1
@@ -386,27 +406,81 @@ export function CheckoutPage({
         <div
           className="glass-card p-5 mb-6"
           style={{ animation: "fade-in-up 0.4s ease-out both" }}
+          data-ocid="checkout.card"
         >
           <h2 className="font-body font-bold mb-3 text-sm uppercase tracking-widest text-foreground/50">
             Order Summary
           </h2>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="font-body font-semibold text-foreground text-lg">
-                {item.name}
-              </p>
-              {item.isPackage && (
-                <p className="text-foreground/50 font-body text-xs mt-1">
-                  Monthly Bonus Package
-                </p>
-              )}
-            </div>
-            <div className="text-right">
-              {appliedCoupon && (
-                <p className="font-body text-sm line-through text-foreground/40 mb-0.5">
-                  {formatPrice(item.price)}
-                </p>
-              )}
+
+          {/* Items list */}
+          <div className="space-y-3 mb-4">
+            {items.map((item, i) => (
+              <div
+                key={item.id.toString()}
+                className="flex items-center justify-between"
+                data-ocid={`checkout.item.${i + 1}`}
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div
+                    className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 text-sm"
+                    style={{
+                      background: item.isPackage
+                        ? "oklch(0.7 0.22 45 / 0.15)"
+                        : "oklch(0.62 0.27 355 / 0.15)",
+                    }}
+                  >
+                    {item.isPackage ? "⚡" : "🎮"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-body font-semibold text-foreground text-sm line-clamp-1">
+                      {item.name}
+                    </p>
+                    <p className="text-foreground/40 font-body text-xs">
+                      {formatPrice(item.price)} × {item.quantity}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className="font-body font-semibold text-sm ml-4 shrink-0"
+                  style={{ color: "oklch(0.85 0.19 85)" }}
+                >
+                  {formatPrice(item.price * BigInt(item.quantity))}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Total row */}
+          <div
+            className="border-t pt-3 mb-4 flex items-center justify-between"
+            style={{ borderColor: "oklch(0.25 0.06 285)" }}
+          >
+            <span className="font-body font-bold text-foreground/70 text-sm">
+              {appliedCoupon ? "Subtotal" : "Total"}
+            </span>
+            <span
+              className={`font-display text-2xl ${appliedCoupon ? "line-through text-foreground/40 text-lg" : ""}`}
+              style={
+                appliedCoupon
+                  ? {}
+                  : {
+                      color: "oklch(0.85 0.19 85)",
+                      textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)",
+                    }
+              }
+            >
+              {formatPrice(baseTotal)}
+            </span>
+          </div>
+
+          {appliedCoupon && (
+            <div className="flex items-center justify-between mb-4">
+              <span
+                className="font-body font-bold text-sm"
+                style={{ color: "oklch(0.65 0.2 145)" }}
+              >
+                Total after discount
+              </span>
               <span
                 className="font-display text-2xl"
                 style={{
@@ -414,10 +488,22 @@ export function CheckoutPage({
                   textShadow: "0 0 10px oklch(0.85 0.19 85 / 0.5)",
                 }}
               >
-                {formatPrice(discountedPrice)}
+                {formatPrice(discountedTotal)}
               </span>
             </div>
-          </div>
+          )}
+
+          {/* Basket summary link */}
+          <button
+            type="button"
+            onClick={() => onNavigate("basket")}
+            className="flex items-center gap-1.5 font-body text-xs text-foreground/40 hover:text-foreground/70 transition-colors mb-4"
+            data-ocid="checkout.link"
+          >
+            <ShoppingCart className="w-3.5 h-3.5" />
+            {items.length} {items.length === 1 ? "item" : "items"} in basket —
+            edit
+          </button>
 
           {/* Delivery email input */}
           <div
@@ -438,6 +524,7 @@ export function CheckoutPage({
               onChange={(e) => setDeliveryEmail(e.target.value)}
               placeholder="your@email.com"
               className="font-body"
+              data-ocid="checkout.input"
               style={{
                 background: "oklch(0.15 0.05 285)",
                 borderColor: "oklch(0.3 0.08 285)",
@@ -483,6 +570,7 @@ export function CheckoutPage({
                 <button
                   type="button"
                   onClick={handleRemoveCoupon}
+                  data-ocid="checkout.delete_button"
                   className="p-1 rounded-md hover:bg-muted/30 transition-colors"
                   title="Remove coupon"
                 >
@@ -502,6 +590,7 @@ export function CheckoutPage({
                   }}
                   placeholder="Enter coupon code"
                   className="font-body uppercase"
+                  data-ocid="checkout.input"
                   style={{
                     background: "oklch(0.15 0.05 285)",
                     borderColor: "oklch(0.3 0.08 285)",
@@ -513,6 +602,7 @@ export function CheckoutPage({
                   variant="outline"
                   onClick={() => void handleApplyCoupon()}
                   disabled={isValidatingCoupon || !couponInput.trim()}
+                  data-ocid="checkout.secondary_button"
                   className="shrink-0 font-body font-semibold"
                   style={{
                     borderColor: "oklch(0.62 0.27 355 / 0.5)",
@@ -529,6 +619,7 @@ export function CheckoutPage({
             )}
             {couponMessage && !appliedCoupon && (
               <p
+                data-ocid={`checkout.${couponMessage.type}_state`}
                 className="font-body text-xs mt-1.5"
                 style={{
                   color:
@@ -549,12 +640,16 @@ export function CheckoutPage({
             Choose Payment Method
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6"
+            data-ocid="checkout.panel"
+          >
             {PAYMENT_OPTIONS.map((option) => (
               <button
                 key={option.id}
                 type="button"
                 onClick={() => setSelectedMethod(option.id)}
+                data-ocid="checkout.toggle"
                 className="glass-card p-4 flex items-center gap-3 text-left transition-all"
                 style={{
                   borderColor:
@@ -637,6 +732,7 @@ export function CheckoutPage({
                       onClick={() =>
                         copyToClipboard(paymentDetails, selectedMethod)
                       }
+                      data-ocid="checkout.button"
                       className="shrink-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors"
                       title="Copy"
                     >
@@ -657,6 +753,7 @@ export function CheckoutPage({
                     onClick={() =>
                       copyToClipboard(paymentDetails, `${selectedMethod}-btn`)
                     }
+                    data-ocid="checkout.primary_button"
                     className="w-full flex items-center justify-center gap-2 rounded-lg py-3 font-body font-semibold text-sm transition-all active:scale-95"
                     style={{
                       background:
@@ -693,10 +790,10 @@ export function CheckoutPage({
 
                   <p className="text-foreground/50 font-body text-xs mt-3">
                     {selectedMethod === "paypal"
-                      ? `Send £${(Number(discountedPrice) / 100).toFixed(2)} to the PayPal username above, then enter your PayPal transaction ID below.`
+                      ? `Send £${(Number(discountedTotal) / 100).toFixed(2)} to the PayPal username above, then enter your PayPal transaction ID below.`
                       : selectedMethod === "bitcoin"
-                        ? `Send £${(Number(discountedPrice) / 100).toFixed(2)} worth of Bitcoin to the address above, then enter your transaction ID (TxID) below.`
-                        : `Send £${(Number(discountedPrice) / 100).toFixed(2)} worth of Ethereum to the address above, then enter your transaction hash below.`}
+                        ? `Send £${(Number(discountedTotal) / 100).toFixed(2)} worth of Bitcoin to the address above, then enter your transaction ID (TxID) below.`
+                        : `Send £${(Number(discountedTotal) / 100).toFixed(2)} worth of Ethereum to the address above, then enter your transaction hash below.`}
                   </p>
                 </>
               ) : (
@@ -734,6 +831,7 @@ export function CheckoutPage({
                 onChange={(e) => setPaymentRef(e.target.value)}
                 placeholder={selectedOption?.placeholder}
                 className="font-body"
+                data-ocid="checkout.input"
                 style={{
                   background: "oklch(0.15 0.05 285)",
                   borderColor: "oklch(0.3 0.08 285)",
@@ -748,8 +846,9 @@ export function CheckoutPage({
 
           <Button
             className="btn-gradient text-white font-body font-bold text-base w-full py-6 h-auto"
-            onClick={handlePlaceOrder}
+            onClick={() => void handlePlaceOrder()}
             disabled={isPlacing || !selectedMethod || !paymentRef.trim()}
+            data-ocid="checkout.submit_button"
           >
             {isPlacing ? (
               <>
@@ -759,7 +858,7 @@ export function CheckoutPage({
             ) : (
               <>
                 <CheckCircle2 className="w-5 h-5 mr-2" />
-                Place Order — {formatPrice(discountedPrice)}
+                Place Order — {formatPrice(discountedTotal)}
               </>
             )}
           </Button>

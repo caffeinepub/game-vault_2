@@ -1,13 +1,21 @@
 import type { Product } from "@/backend.d";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { CheckoutItem, Page } from "@/types";
-import { ArrowLeft, Download, Gamepad2, ShoppingBag } from "lucide-react";
+import type { BasketItem, CheckoutItem, Page } from "@/types";
+import {
+  ArrowLeft,
+  Download,
+  Gamepad2,
+  ShoppingBag,
+  ShoppingCart,
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface ProductDetailPageProps {
   product: Product;
   onNavigate: (page: Page) => void;
   onSelectCheckoutItem: (item: CheckoutItem) => void;
+  onAddToBasket: (item: Omit<BasketItem, "quantity">) => void;
   userProfile: { username: string; email: string } | null;
 }
 
@@ -26,6 +34,7 @@ export function ProductDetailPage({
   product,
   onNavigate,
   onSelectCheckoutItem,
+  onAddToBasket,
   userProfile,
 }: ProductDetailPageProps) {
   const handleBuyNow = () => {
@@ -39,6 +48,19 @@ export function ProductDetailPage({
       price: product.price,
     });
     onNavigate("checkout");
+  };
+
+  const handleAddToBasket = () => {
+    if (!userProfile) {
+      onNavigate("auth");
+      return;
+    }
+    onAddToBasket({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+    });
+    toast.success(`${product.name} added to basket!`);
   };
 
   const isDownload = product.category === "download_file";
@@ -161,7 +183,7 @@ export function ProductDetailPage({
             </div>
 
             {/* Price & CTA */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 flex-wrap">
               <div>
                 <p className="text-foreground/40 font-body text-xs uppercase tracking-widest mb-1">
                   Price
@@ -177,13 +199,30 @@ export function ProductDetailPage({
                 </span>
               </div>
 
-              <Button
-                className="btn-gradient text-white font-body font-bold text-base px-8 py-6 h-auto flex-1 max-w-xs"
-                onClick={handleBuyNow}
-              >
-                <ShoppingBag className="w-5 h-5 mr-2" />
-                Buy Now
-              </Button>
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  className="font-body font-semibold text-sm px-5 py-5 h-auto"
+                  onClick={handleAddToBasket}
+                  data-ocid="product.button"
+                  style={{
+                    borderColor: "oklch(0.7 0.22 45 / 0.5)",
+                    color: "oklch(0.7 0.22 45)",
+                    background: "oklch(0.7 0.22 45 / 0.08)",
+                  }}
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Add to Basket
+                </Button>
+                <Button
+                  className="btn-gradient text-white font-body font-bold text-base px-8 py-6 h-auto flex-1 max-w-xs"
+                  onClick={handleBuyNow}
+                  data-ocid="product.primary_button"
+                >
+                  <ShoppingBag className="w-5 h-5 mr-2" />
+                  Buy Now
+                </Button>
+              </div>
             </div>
           </div>
         </div>

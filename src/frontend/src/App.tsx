@@ -8,6 +8,7 @@ import type {
 } from "@/backend.d";
 import { AdminPage } from "@/components/AdminPage";
 import { AuthPage } from "@/components/AuthPage";
+import { BasketPage } from "@/components/BasketPage";
 import { CheckoutPage } from "@/components/CheckoutPage";
 import { DashboardPage } from "@/components/DashboardPage";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -17,7 +18,7 @@ import { StorePage } from "@/components/StorePage";
 import { Toaster } from "@/components/ui/sonner";
 import { useActor } from "@/hooks/useActor";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
-import type { CheckoutItem, Page } from "@/types";
+import type { BasketItem, Page } from "@/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
@@ -30,7 +31,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("store");
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [checkoutItem, setCheckoutItem] = useState<CheckoutItem | null>(null);
+  const [basket, setBasket] = useState<BasketItem[]>([]);
   const [showAdminPinModal, setShowAdminPinModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -108,6 +109,36 @@ export default function App() {
     },
     [navigate],
   );
+
+  // ---- Basket handlers ----
+  const addToBasket = useCallback((item: Omit<BasketItem, "quantity">) => {
+    setBasket((prev) => {
+      const existing = prev.find((b) => b.id === item.id);
+      if (existing) {
+        return prev.map((b) =>
+          b.id === item.id ? { ...b, quantity: b.quantity + 1 } : b,
+        );
+      }
+      return [...prev, { ...item, quantity: 1 }];
+    });
+  }, []);
+
+  const removeFromBasket = useCallback((id: bigint) => {
+    setBasket((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  const updateQuantity = useCallback((id: bigint, qty: number) => {
+    if (qty < 1) return;
+    setBasket((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, quantity: qty } : b)),
+    );
+  }, []);
+
+  const clearBasket = useCallback(() => {
+    setBasket([]);
+  }, []);
+
+  const basketCount = basket.reduce((sum, item) => sum + item.quantity, 0);
 
   // ---- Handlers ----
   const handleRegister = useCallback(
@@ -443,6 +474,7 @@ export default function App() {
           onLogout={handleLogout}
           isMenuOpen={isMenuOpen}
           onMenuToggle={() => setIsMenuOpen((v) => !v)}
+          basketCount={basketCount}
         />
 
         <main className="flex-1">
@@ -455,7 +487,11 @@ export default function App() {
               isLoadingPackages={isLoadingPackages}
               onNavigate={navigate}
               onSelectProduct={setSelectedProduct}
-              onSelectCheckoutItem={setCheckoutItem}
+              onSelectCheckoutItem={(item) => {
+                setBasket([{ ...item, quantity: 1 }]);
+                navigate("checkout");
+              }}
+              onAddToBasket={addToBasket}
               userProfile={userProfile}
               activeAds={activeAds}
               hasActiveMembership={hasActiveMembership}
@@ -471,18 +507,35 @@ export default function App() {
             <ProductDetailPage
               product={selectedProduct}
               onNavigate={navigate}
-              onSelectCheckoutItem={setCheckoutItem}
+              onSelectCheckoutItem={(item) => {
+                setBasket([{ ...item, quantity: 1 }]);
+                navigate("checkout");
+              }}
+              onAddToBasket={addToBasket}
+              userProfile={userProfile}
+            />
+          )}
+
+          {/* Basket */}
+          {currentPage === "basket" && (
+            <BasketPage
+              basket={basket}
+              onNavigate={navigate}
+              onUpdateQuantity={updateQuantity}
+              onRemoveFromBasket={removeFromBasket}
+              onProceedToCheckout={() => navigate("checkout")}
               userProfile={userProfile}
             />
           )}
 
           {/* Checkout */}
-          {currentPage === "checkout" && checkoutItem && (
+          {currentPage === "checkout" && basket.length > 0 && (
             <CheckoutPage
-              item={checkoutItem}
+              items={basket}
               paymentSettings={paymentSettings}
               onNavigate={navigate}
               onPlaceOrder={handlePlaceOrder}
+              onClearBasket={clearBasket}
               userProfile={userProfile}
             />
           )}
@@ -534,12 +587,12 @@ export default function App() {
             </div>
           )}
 
-          {/* Redirect if checkout without item */}
-          {currentPage === "checkout" && !checkoutItem && (
+          {/* Redirect if checkout without items */}
+          {currentPage === "checkout" && basket.length === 0 && (
             <div className="flex items-center justify-center min-h-96">
               <div className="text-center">
                 <p className="text-foreground/60 font-body mb-4">
-                  No item selected for checkout
+                  Your basket is empty
                 </p>
                 <button
                   type="button"

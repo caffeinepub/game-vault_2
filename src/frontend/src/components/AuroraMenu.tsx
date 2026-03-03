@@ -8,6 +8,7 @@ import {
   LogOut,
   Shield,
   ShoppingBag,
+  ShoppingCart,
   UserCircle,
   X,
 } from "lucide-react";
@@ -21,6 +22,7 @@ interface AuroraMenuProps {
   userProfile: UserProfile | null;
   onLogout: () => void;
   onAdminClick: () => void;
+  basketCount?: number;
 }
 
 interface BladeItem {
@@ -41,6 +43,7 @@ export function AuroraMenu({
   userProfile,
   onLogout,
   onAdminClick,
+  basketCount = 0,
 }: AuroraMenuProps) {
   const [mounted, setMounted] = useState(false);
   const [bladesVisible, setBladesVisible] = useState<boolean[]>([]);
@@ -56,6 +59,18 @@ export function AuroraMenu({
       },
       accentColor: "oklch(0.62 0.27 355)",
       isActive: currentPage === "store",
+      visible: true,
+    },
+    {
+      id: "basket",
+      label: basketCount > 0 ? `Basket (${basketCount})` : "Basket",
+      icon: <ShoppingCart className="w-5 h-5" />,
+      onClick: () => {
+        onNavigate("basket");
+        onClose();
+      },
+      accentColor: "oklch(0.7 0.22 45)",
+      isActive: currentPage === "basket",
       visible: true,
     },
     {
