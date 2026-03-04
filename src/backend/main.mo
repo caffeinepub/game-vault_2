@@ -10,11 +10,11 @@ import Runtime "mo:core/Runtime";
 import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import Iter "mo:core/Iter";
+import Migration "migration";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 
-
-
+(with migration = Migration.run)
 actor {
   type Username = Text;
 
@@ -345,9 +345,6 @@ actor {
     couponCode : ?Text,
     deliveryEmail : Text,
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can place orders");
-    };
     if (not registeredUsers.contains(customerUsername)) {
       Runtime.trap("User not registered");
     };
@@ -484,9 +481,6 @@ actor {
   };
 
   public query ({ caller }) func getCustomerOrders(customerUsername : Username) : async [Order] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view orders");
-    };
     let profile = switch (userProfiles.get(caller)) {
       case (null) { Runtime.trap("User profile not found") };
       case (?p) { p };
@@ -877,9 +871,6 @@ actor {
     paymentMethod : Text,
     paymentReference : Text,
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can purchase memberships");
-    };
     let membershipDuration : Int = 30 * 24 * 60 * 60 * 1_000_000_000; // 30 days in nanoseconds
     let now = Time.now();
 
@@ -941,9 +932,6 @@ actor {
   };
 
   public query ({ caller }) func getMembershipStatus(customerUsername : Username) : async ?Membership {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view membership status");
-    };
     let profile = switch (userProfiles.get(caller)) {
       case (null) { Runtime.trap("User profile not found") };
       case (?p) { p };
@@ -993,10 +981,13 @@ actor {
   };
 
   // Promotion Requests - NEW Feature with proper authorization
-  public shared ({ caller }) func submitPromotionRequest(submitterUsername : Text, promotionType : Text, link : Text, description : Text, imageUrl : Text) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can submit promotion requests");
-    };
+  public shared ({ caller }) func submitPromotionRequest(
+    submitterUsername : Text,
+    promotionType : Text,
+    link : Text,
+    description : Text,
+    imageUrl : Text
+  ) : async Nat {
     let id = nextPromotionRequestId;
     let promotionRequest : PromotionRequest = {
       id;
