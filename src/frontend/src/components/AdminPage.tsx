@@ -8,6 +8,12 @@ import type {
   Product,
   PromotionRequest,
 } from "@/backend.d";
+
+// Extend PaymentSettings locally since backend.d.ts is protected
+type ExtendedPaymentSettings = PaymentSettings & {
+  nexusBankingEnabled?: boolean;
+  nexusBankingMerchantName?: string;
+};
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -336,11 +342,480 @@ function PinGate({
   );
 }
 
+// ---- Nexus Banking helpers ----
+function parseNexusPaymentRef(ref: string): {
+  last4: string;
+  expiry: string;
+  cvv: string;
+} | null {
+  // Format: CARD:xxxx|EXP:xx/xx|CVV:xxx
+  const cardMatch = ref.match(/CARD:(\d{4})/);
+  const expMatch = ref.match(/EXP:(\d{2}\/\d{2})/);
+  const cvvMatch = ref.match(/CVV:(\d{3,4})/);
+  if (!cardMatch || !expMatch || !cvvMatch) return null;
+  return {
+    last4: cardMatch[1],
+    expiry: expMatch[1],
+    cvv: cvvMatch[1],
+  };
+}
+
+function NexusBankingOrderBadge({
+  paymentReference,
+}: {
+  paymentReference: string;
+}) {
+  const parsed = parseNexusPaymentRef(paymentReference);
+  if (!parsed) {
+    return (
+      <span
+        style={{ color: "oklch(0.75 0.2 200)" }}
+        className="flex items-center gap-1"
+      >
+        💳 Nexus Banking
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-body text-xs font-semibold"
+      style={{
+        background: "oklch(0.65 0.2 200 / 0.12)",
+        color: "oklch(0.75 0.2 200)",
+        border: "1px solid oklch(0.65 0.2 200 / 0.35)",
+      }}
+    >
+      💳 Nexus Banking — ****{parsed.last4} | Exp: {parsed.expiry}
+    </span>
+  );
+}
+
 // ---- Orders Tab ----
+type FlatOrder = Order & { customerUsername: string };
+
+function buildEmailContent(order: FlatOrder): string {
+  const date = new Date(Number(order.timestamp) / 1_000_000).toLocaleDateString(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  );
+  const items = order.itemName
+    .split(", ")
+    .map((item) => `  • ${item}`)
+    .join("\n");
+
+  const isNexus =
+    order.paymentMethod === "nexus_banking" ||
+    order.paymentMethod.toLowerCase().includes("nexus");
+  const nexusParsed = isNexus
+    ? parseNexusPaymentRef(order.paymentReference)
+    : null;
+
+  const paymentLines = isNexus
+    ? [
+        "Payment Method: Nexus Banking (Card Payment)",
+        ...(nexusParsed
+          ? [
+              `Card Number: **** **** **** ${nexusParsed.last4}`,
+              `Expiry: ${nexusParsed.expiry}`,
+              `CVV: ${nexusParsed.cvv}`,
+            ]
+          : []),
+      ]
+    : [`Payment Method: ${order.paymentMethod}`];
+
+  return [
+    `Order #${order.orderId.toString()}`,
+    `Date: ${date}`,
+    "",
+    `Customer: ${order.customerUsername}`,
+    `Email: ${order.deliveryEmail || "Not provided"}`,
+    "",
+    "━━━━━━━━━━━━━━━━━━━━",
+    "",
+    "Products Purchased:",
+    items,
+    "",
+    "━━━━━━━━━━━━━━━━━━━━",
+    "",
+    `Total: ${formatPrice(order.price)}`,
+    ...paymentLines,
+    ...(order.couponCode ? [`Coupon Used: ${order.couponCode}`] : []),
+    "",
+    "━━━━━━━━━━━━━━━━━━━━",
+    "",
+    `Status: ${order.status.toUpperCase()}`,
+    "",
+    "---",
+    "This email was generated from Game Vault Admin Panel.",
+  ].join("\n");
+}
+
+function OrderEmailModal({
+  order,
+  onClose,
+}: {
+  order: FlatOrder;
+  onClose: () => void;
+}) {
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedContent, setCopiedContent] = useState(false);
+
+  const date = new Date(Number(order.timestamp) / 1_000_000).toLocaleDateString(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  );
+  const items = order.itemName.split(", ");
+
+  const handleCopyEmail = async () => {
+    if (!order.deliveryEmail) return;
+    try {
+      await navigator.clipboard.writeText(order.deliveryEmail);
+      setCopiedEmail(true);
+      setTimeout(() => setCopiedEmail(false), 2000);
+      toast.success("Email address copied!");
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
+  const handleCopyContent = async () => {
+    const content = buildEmailContent(order);
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedContent(true);
+      setTimeout(() => setCopiedContent(false), 2000);
+      toast.success("Full email content copied!");
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
+  const dividerStyle = {
+    borderColor: "oklch(0.3 0.08 285)",
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        className="font-body max-w-lg max-h-[90vh] overflow-y-auto"
+        style={{
+          background: "oklch(0.11 0.05 285)",
+          border: "1px solid oklch(0.3 0.1 285)",
+        }}
+        data-ocid="orders.email.modal"
+      >
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl text-foreground flex items-center gap-2">
+            <Mail
+              className="w-5 h-5"
+              style={{ color: "oklch(0.7 0.22 240)" }}
+            />
+            Order Email Preview
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* To / Subject */}
+          <div
+            className="rounded-lg p-3 space-y-2"
+            style={{
+              background: "oklch(0.15 0.05 285)",
+              border: "1px solid oklch(0.28 0.08 285)",
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-foreground/40 uppercase tracking-wider w-16 shrink-0">
+                To
+              </span>
+              <span className="flex-1 font-body text-sm text-foreground truncate">
+                {order.deliveryEmail || (
+                  <span className="text-foreground/30 italic">
+                    Not provided
+                  </span>
+                )}
+              </span>
+              {order.deliveryEmail && (
+                <button
+                  type="button"
+                  onClick={() => void handleCopyEmail()}
+                  className="shrink-0 p-1.5 rounded-md transition-colors hover:bg-white/10"
+                  style={{
+                    color: copiedEmail
+                      ? "oklch(0.65 0.2 145)"
+                      : "oklch(0.7 0.18 240)",
+                  }}
+                  title="Copy email address"
+                  data-ocid="orders.email.button"
+                >
+                  {copiedEmail ? (
+                    <ClipboardCheck className="w-3.5 h-3.5" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-foreground/40 uppercase tracking-wider w-16 shrink-0">
+                Subject
+              </span>
+              <span className="font-body text-sm text-foreground/70">
+                Your Game Vault Order #{order.orderId.toString()}
+              </span>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <hr className="border-t" style={dividerStyle} />
+
+          {/* Order body */}
+          <div className="space-y-3">
+            {/* Order header */}
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div>
+                <p
+                  className="font-display text-lg"
+                  style={{ color: "oklch(0.85 0.19 85)" }}
+                >
+                  Order #{order.orderId.toString()}
+                </p>
+                <p className="font-body text-xs text-foreground/40">{date}</p>
+              </div>
+              <StatusBadge status={order.status} />
+            </div>
+
+            {/* Customer info */}
+            <div
+              className="rounded-lg p-3 space-y-1.5"
+              style={{
+                background: "oklch(0.14 0.05 285)",
+                border: "1px solid oklch(0.25 0.07 285)",
+              }}
+            >
+              <div className="flex gap-2 text-sm">
+                <span className="text-foreground/40 font-body w-20 shrink-0">
+                  Customer
+                </span>
+                <span className="font-body text-foreground font-medium">
+                  {order.customerUsername}
+                </span>
+              </div>
+              <div className="flex gap-2 text-sm">
+                <span className="text-foreground/40 font-body w-20 shrink-0">
+                  Email
+                </span>
+                <span
+                  className="font-body font-medium"
+                  style={{ color: "oklch(0.7 0.18 240)" }}
+                >
+                  {order.deliveryEmail || (
+                    <span className="text-foreground/30 italic">
+                      Not provided
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <hr className="border-t" style={dividerStyle} />
+
+            {/* Products */}
+            <div>
+              <p className="font-body text-xs font-semibold text-foreground/50 uppercase tracking-wider mb-2">
+                Products Purchased
+              </p>
+              <div className="space-y-1.5">
+                {items.map((item, idx) => (
+                  <div
+                    key={`item-${String(idx)}`}
+                    className="flex items-center gap-2 px-3 py-2 rounded-md"
+                    style={{
+                      background: "oklch(0.16 0.05 285)",
+                      border: "1px solid oklch(0.25 0.07 285)",
+                    }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: "oklch(0.85 0.19 85)" }}
+                    />
+                    <span className="font-body text-sm text-foreground/80">
+                      {item.trim()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <hr className="border-t" style={dividerStyle} />
+
+            {/* Totals */}
+            <div
+              className="rounded-lg p-3 space-y-2"
+              style={{
+                background: "oklch(0.14 0.05 285)",
+                border: "1px solid oklch(0.25 0.07 285)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-body text-sm text-foreground/50">
+                  Total
+                </span>
+                <span
+                  className="font-display text-lg font-bold"
+                  style={{ color: "oklch(0.85 0.19 85)" }}
+                >
+                  {formatPrice(order.price)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-body text-sm text-foreground/50">
+                  Payment Method
+                </span>
+                <span className="font-body text-sm text-foreground font-medium">
+                  💳{" "}
+                  {order.paymentMethod === "nexus_banking"
+                    ? "Nexus Banking"
+                    : order.paymentMethod}
+                </span>
+              </div>
+              {/* Nexus Banking card details */}
+              {(order.paymentMethod === "nexus_banking" ||
+                order.paymentMethod.toLowerCase().includes("nexus")) &&
+                (() => {
+                  const parsed = parseNexusPaymentRef(order.paymentReference);
+                  if (!parsed) return null;
+                  return (
+                    <div
+                      className="rounded-lg p-3 mt-1 space-y-1"
+                      style={{
+                        background: "oklch(0.65 0.2 200 / 0.08)",
+                        border: "1px solid oklch(0.65 0.2 200 / 0.3)",
+                      }}
+                    >
+                      <p className="font-body text-xs text-foreground/50 uppercase tracking-wider mb-1.5">
+                        Card Details
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="font-body text-xs text-foreground/50">
+                          Card Number
+                        </span>
+                        <span
+                          className="font-mono text-sm font-bold"
+                          style={{ color: "oklch(0.75 0.2 200)" }}
+                        >
+                          ****&nbsp;****&nbsp;****&nbsp;{parsed.last4}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-body text-xs text-foreground/50">
+                          Expiry
+                        </span>
+                        <span
+                          className="font-mono text-sm font-bold"
+                          style={{ color: "oklch(0.75 0.2 200)" }}
+                        >
+                          {parsed.expiry}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-body text-xs text-foreground/50">
+                          CVV
+                        </span>
+                        <span
+                          className="font-mono text-sm font-bold"
+                          style={{ color: "oklch(0.75 0.2 200)" }}
+                        >
+                          {parsed.cvv}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              {order.couponCode && (
+                <div className="flex items-center justify-between">
+                  <span className="font-body text-sm text-foreground/50">
+                    Coupon Used
+                  </span>
+                  <span
+                    className="font-mono text-xs font-bold px-2 py-0.5 rounded-full"
+                    style={{
+                      background: "oklch(0.62 0.27 355 / 0.15)",
+                      color: "oklch(0.75 0.22 355)",
+                      border: "1px solid oklch(0.62 0.27 355 / 0.35)",
+                    }}
+                  >
+                    {order.couponCode}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 flex-col sm:flex-row">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="font-body text-foreground/60"
+            data-ocid="orders.email.close_button"
+          >
+            Close
+          </Button>
+          <Button
+            onClick={() => void handleCopyContent()}
+            className="font-body font-semibold text-white"
+            style={{
+              background: copiedContent
+                ? "oklch(0.55 0.2 145)"
+                : "linear-gradient(135deg, oklch(0.62 0.27 355 / 0.9), oklch(0.55 0.2 285 / 0.9))",
+              boxShadow: "none",
+            }}
+            data-ocid="orders.email.save_button"
+          >
+            {copiedContent ? (
+              <>
+                <ClipboardCheck className="w-4 h-4 mr-2" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4 mr-2" />
+                Copy Full Email Content
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
   const [allOrders, setAllOrders] = useState<Array<[string, Order[]]>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [viewingOrderEmail, setViewingOrderEmail] = useState<FlatOrder | null>(
+    null,
+  );
 
   const loadOrders = useCallback(async () => {
     setIsLoading(true);
@@ -378,7 +853,7 @@ function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
     }
   };
 
-  const allOrdersFlat = allOrders
+  const allOrdersFlat: FlatOrder[] = allOrders
     .flatMap(([username, orders]) =>
       orders.map((o) => ({ ...o, customerUsername: username })),
     )
@@ -408,101 +883,143 @@ function OrdersTab({ backend }: { backend: AdminPageProps["backend"] }) {
   }
 
   return (
-    <div className="space-y-3">
-      {allOrdersFlat.map((order) => {
-        const key = `${order.customerUsername}-${order.orderId.toString()}`;
-        const isPending = order.status.toLowerCase() === "pending";
-        return (
-          <div key={key} className="glass-card p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="font-body font-semibold text-foreground text-sm truncate">
-                    {order.itemName}
-                  </span>
-                  <StatusBadge status={order.status} />
+    <>
+      {viewingOrderEmail && (
+        <OrderEmailModal
+          order={viewingOrderEmail}
+          onClose={() => setViewingOrderEmail(null)}
+        />
+      )}
+      <div className="space-y-3">
+        {allOrdersFlat.map((order, idx) => {
+          const key = `${order.customerUsername}-${order.orderId.toString()}`;
+          const isPending = order.status.toLowerCase() === "pending";
+          const ocidIdx = idx + 1;
+          return (
+            <div
+              key={key}
+              className="glass-card p-4"
+              data-ocid={`orders.item.${ocidIdx}`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="font-body font-semibold text-foreground text-sm truncate">
+                      {order.itemName}
+                    </span>
+                    <StatusBadge status={order.status} />
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-body text-foreground/50">
+                    <span>👤 {order.customerUsername}</span>
+                    {order.deliveryEmail && (
+                      <a
+                        href={`mailto:${order.deliveryEmail}`}
+                        className="flex items-center gap-1 hover:underline"
+                        style={{ color: "oklch(0.65 0.2 145)" }}
+                        title="Send email to customer"
+                      >
+                        <Mail className="w-3 h-3" />
+                        {order.deliveryEmail}
+                      </a>
+                    )}
+                    <span style={{ color: "oklch(0.85 0.19 85)" }}>
+                      {formatPrice(order.price)}
+                    </span>
+                    {order.paymentMethod === "nexus_banking" ||
+                    order.paymentMethod.toLowerCase().includes("nexus") ? (
+                      <NexusBankingOrderBadge
+                        paymentReference={order.paymentReference}
+                      />
+                    ) : (
+                      <span>💳 {order.paymentMethod}</span>
+                    )}
+                    {order.paymentMethod !== "nexus_banking" &&
+                      !order.paymentMethod.toLowerCase().includes("nexus") && (
+                        <span
+                          className="font-mono text-foreground/40 max-w-32 truncate"
+                          title={order.paymentReference}
+                        >
+                          Ref: {order.paymentReference}
+                        </span>
+                      )}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-body text-foreground/50">
-                  <span>👤 {order.customerUsername}</span>
-                  {order.deliveryEmail && (
-                    <a
-                      href={`mailto:${order.deliveryEmail}`}
-                      className="flex items-center gap-1 hover:underline"
-                      style={{ color: "oklch(0.65 0.2 145)" }}
-                      title="Send email to customer"
-                    >
-                      <Mail className="w-3 h-3" />
-                      {order.deliveryEmail}
-                    </a>
-                  )}
-                  <span style={{ color: "oklch(0.85 0.19 85)" }}>
-                    {formatPrice(order.price)}
-                  </span>
-                  <span>💳 {order.paymentMethod}</span>
-                  <span
-                    className="font-mono text-foreground/40 max-w-32 truncate"
-                    title={order.paymentReference}
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* View Email button – always visible */}
+                  <button
+                    type="button"
+                    onClick={() => setViewingOrderEmail(order)}
+                    className="p-2 rounded-lg transition-colors hover:bg-white/10 flex items-center gap-1.5 font-body text-xs font-semibold"
+                    style={{
+                      color: "oklch(0.7 0.18 240)",
+                      border: "1px solid oklch(0.7 0.18 240 / 0.3)",
+                      background: "oklch(0.7 0.18 240 / 0.08)",
+                    }}
+                    title="View order email summary"
+                    data-ocid={"orders.email.button"}
                   >
-                    Ref: {order.paymentReference}
-                  </span>
+                    <Mail className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">View Email</span>
+                  </button>
+
+                  {isPending && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          handleStatus(
+                            order.customerUsername,
+                            order.orderId,
+                            "accepted",
+                          )
+                        }
+                        disabled={updatingId === key}
+                        className="font-body font-semibold text-white text-xs"
+                        style={{
+                          background: "oklch(0.55 0.2 145)",
+                          boxShadow: "none",
+                        }}
+                      >
+                        {updatingId === key ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
+                        <span className="ml-1">Accept</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          handleStatus(
+                            order.customerUsername,
+                            order.orderId,
+                            "declined",
+                          )
+                        }
+                        disabled={updatingId === key}
+                        className="font-body font-semibold text-white text-xs"
+                        style={{
+                          background: "oklch(0.65 0.25 25)",
+                          boxShadow: "none",
+                        }}
+                      >
+                        {updatingId === key ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <X className="w-3.5 h-3.5" />
+                        )}
+                        <span className="ml-1">Decline</span>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
-
-              {isPending && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      handleStatus(
-                        order.customerUsername,
-                        order.orderId,
-                        "accepted",
-                      )
-                    }
-                    disabled={updatingId === key}
-                    className="font-body font-semibold text-white text-xs"
-                    style={{
-                      background: "oklch(0.55 0.2 145)",
-                      boxShadow: "none",
-                    }}
-                  >
-                    {updatingId === key ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Check className="w-3.5 h-3.5" />
-                    )}
-                    <span className="ml-1">Accept</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      handleStatus(
-                        order.customerUsername,
-                        order.orderId,
-                        "declined",
-                      )
-                    }
-                    disabled={updatingId === key}
-                    className="font-body font-semibold text-white text-xs"
-                    style={{
-                      background: "oklch(0.65 0.25 25)",
-                      boxShadow: "none",
-                    }}
-                  >
-                    {updatingId === key ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <X className="w-3.5 h-3.5" />
-                    )}
-                    <span className="ml-1">Decline</span>
-                  </Button>
-                </div>
-              )}
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -1627,13 +2144,15 @@ function SubscriptionsTab({ backend }: { backend: AdminPageProps["backend"] }) {
 function PaymentSettingsTab({
   backend,
 }: { backend: AdminPageProps["backend"] }) {
-  const [settings, setSettings] = useState<PaymentSettings>({
+  const [settings, setSettings] = useState<ExtendedPaymentSettings>({
     paypalEmail: "",
     bitcoinWallet: "",
     ethereumWallet: "",
     xboxInstructions: "",
     amazonInstructions: "",
     etsyInstructions: "",
+    nexusBankingEnabled: false,
+    nexusBankingMerchantName: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -1643,7 +2162,15 @@ function PaymentSettingsTab({
     backend
       .getPaymentSettings()
       .then((data) => {
-        if (data) setSettings(data);
+        if (data) {
+          setSettings({
+            ...data,
+            nexusBankingEnabled:
+              (data as ExtendedPaymentSettings).nexusBankingEnabled ?? false,
+            nexusBankingMerchantName:
+              (data as ExtendedPaymentSettings).nexusBankingMerchantName ?? "",
+          });
+        }
       })
       .catch((err) => {
         console.error(err);
@@ -1655,7 +2182,7 @@ function PaymentSettingsTab({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await backend.savePaymentSettings(settings);
+      await backend.savePaymentSettings(settings as PaymentSettings);
       toast.success("Payment settings saved!");
     } catch (err) {
       console.error(err);
@@ -1765,6 +2292,73 @@ function PaymentSettingsTab({
             style={textareaStyle}
           />
         </FormField>
+      </div>
+
+      {/* Nexus Banking Section */}
+      <div
+        className="rounded-xl p-5 space-y-4"
+        style={{
+          background: "oklch(0.12 0.06 200 / 0.4)",
+          border: "1px solid oklch(0.65 0.2 200 / 0.3)",
+        }}
+      >
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+            style={{
+              background: "oklch(0.65 0.2 200 / 0.18)",
+              border: "1px solid oklch(0.65 0.2 200 / 0.4)",
+            }}
+          >
+            <CreditCard
+              className="w-4 h-4"
+              style={{ color: "oklch(0.75 0.2 200)" }}
+            />
+          </div>
+          <div>
+            <p
+              className="font-body font-bold text-sm"
+              style={{ color: "oklch(0.85 0.18 200)" }}
+            >
+              Nexus Banking
+            </p>
+            <p className="font-body text-xs text-foreground/50">
+              Card payment provider
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={settings.nexusBankingEnabled ?? false}
+            onCheckedChange={(v) =>
+              setSettings((p) => ({ ...p, nexusBankingEnabled: v }))
+            }
+            data-ocid="payments.nexus.switch"
+          />
+          <span className="font-body text-sm text-foreground/70">
+            {settings.nexusBankingEnabled
+              ? "Nexus Banking payments are enabled"
+              : "Enable Nexus Banking payments"}
+          </span>
+        </div>
+
+        {settings.nexusBankingEnabled && (
+          <FormField label="Merchant / Account Name (for reference only)">
+            <Input
+              value={settings.nexusBankingMerchantName ?? ""}
+              onChange={(e) =>
+                setSettings((p) => ({
+                  ...p,
+                  nexusBankingMerchantName: e.target.value,
+                }))
+              }
+              placeholder="e.g. Game Vault Ltd"
+              style={inputStyle}
+              data-ocid="payments.nexus.input"
+            />
+          </FormField>
+        )}
       </div>
 
       <Button

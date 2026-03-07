@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Copy,
+  CreditCard,
   Loader2,
+  Lock,
   Mail,
   ShoppingCart,
   Tag,
@@ -19,9 +21,16 @@ import { useState } from "react";
 import { SiBitcoin, SiEthereum, SiPaypal } from "react-icons/si";
 import { toast } from "sonner";
 
+// Extended PaymentSettings to support Nexus Banking fields
+// (backend.d.ts is protected, so we extend it locally)
+type ExtendedPaymentSettings = PaymentSettings & {
+  nexusBankingEnabled?: boolean;
+  nexusBankingMerchantName?: string;
+};
+
 interface CheckoutPageProps {
   items: BasketItem[];
-  paymentSettings: PaymentSettings | null;
+  paymentSettings: ExtendedPaymentSettings | null;
   onNavigate: (page: Page) => void;
   onPlaceOrder: (
     itemName: string,
@@ -41,15 +50,16 @@ type PaymentMethod =
   | "ethereum"
   | "xbox"
   | "amazon"
-  | "etsy";
+  | "etsy"
+  | "nexus_banking";
 
 interface PaymentOption {
   id: PaymentMethod;
   label: string;
   icon: React.ReactNode;
   color: string;
-  getDetails: (settings: PaymentSettings) => string;
-  placeholder: string;
+  getDetails?: (settings: ExtendedPaymentSettings) => string;
+  placeholder?: string;
 }
 
 function formatPrice(pricePence: bigint): string {
@@ -57,7 +67,7 @@ function formatPrice(pricePence: bigint): string {
   return `£${pounds.toFixed(2)}`;
 }
 
-const PAYMENT_OPTIONS: PaymentOption[] = [
+const ALL_PAYMENT_OPTIONS: PaymentOption[] = [
   {
     id: "paypal",
     label: "PayPal",
@@ -110,6 +120,12 @@ const PAYMENT_OPTIONS: PaymentOption[] = [
       s.etsyInstructions || "Send your Etsy gift card code to admin via email",
     placeholder: "Enter your Etsy gift card code",
   },
+  {
+    id: "nexus_banking",
+    label: "Nexus Banking",
+    icon: <CreditCard className="w-5 h-5" />,
+    color: "oklch(0.65 0.2 200)",
+  },
 ];
 
 export function CheckoutPage({
@@ -129,8 +145,21 @@ export function CheckoutPage({
   const [orderId, setOrderId] = useState<bigint | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
+  // Nexus Banking card fields
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+
   // Delivery email state
   const [deliveryEmail, setDeliveryEmail] = useState(userProfile?.email ?? "");
+
+  // Filter payment options based on settings
+  const PAYMENT_OPTIONS = ALL_PAYMENT_OPTIONS.filter((opt) => {
+    if (opt.id === "nexus_banking") {
+      return paymentSettings?.nexusBankingEnabled === true;
+    }
+    return true;
+  });
 
   // Coupon state
   const [couponInput, setCouponInput] = useState("");
@@ -216,10 +245,30 @@ export function CheckoutPage({
       toast.error("Please select a payment method");
       return;
     }
-    if (!paymentRef.trim()) {
+
+    // Nexus Banking: validate card fields and build reference
+    let finalPaymentRef = paymentRef.trim();
+    if (selectedMethod === "nexus_banking") {
+      const rawCardNumber = cardNumber.replace(/\s/g, "");
+      if (!/^\d{16}$/.test(rawCardNumber)) {
+        toast.error("Please enter a valid 16-digit card number");
+        return;
+      }
+      if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+        toast.error("Please enter a valid expiry date (MM/YY)");
+        return;
+      }
+      if (!/^\d{3,4}$/.test(cardCvv)) {
+        toast.error("Please enter a valid CVV (3-4 digits)");
+        return;
+      }
+      const last4 = rawCardNumber.slice(-4);
+      finalPaymentRef = `CARD:${last4}|EXP:${cardExpiry}|CVV:${cardCvv}`;
+    } else if (!finalPaymentRef) {
       toast.error("Please enter your payment reference");
       return;
     }
+
     if (!deliveryEmail.trim()) {
       toast.error("Please enter a delivery email");
       return;
@@ -241,7 +290,7 @@ export function CheckoutPage({
         combinedName,
         discountedTotal,
         selectedMethod,
-        paymentRef.trim(),
+        finalPaymentRef,
         appliedCoupon?.code ?? null,
         deliveryEmail.trim(),
       );
@@ -280,7 +329,7 @@ export function CheckoutPage({
 
   const selectedOption = PAYMENT_OPTIONS.find((o) => o.id === selectedMethod);
   const paymentDetails =
-    selectedOption && paymentSettings
+    selectedOption?.getDetails && paymentSettings
       ? selectedOption.getDetails(paymentSettings)
       : null;
 
@@ -689,135 +738,288 @@ export function CheckoutPage({
           </div>
 
           {/* Payment details */}
-          {selectedMethod && paymentDetails && (
-            <div
-              className="glass-card p-5 mb-6"
-              style={{
-                borderColor: `${selectedOption?.color.split(")")[0]} / 0.4)`,
-                animation: "fade-in 0.3s ease-out both",
-                boxShadow: `0 0 20px ${selectedOption?.color.split(")")[0]} / 0.1)`,
-              }}
-            >
-              <h3 className="font-body font-semibold text-foreground mb-1 flex items-center gap-2">
-                {selectedOption?.icon}
-                {selectedMethod === "paypal"
-                  ? "Send payment to this PayPal account:"
-                  : selectedMethod === "bitcoin"
-                    ? "Send Bitcoin to this address:"
-                    : selectedMethod === "ethereum"
-                      ? "Send Ethereum to this address:"
-                      : "Payment Instructions:"}
-              </h3>
+          {selectedMethod &&
+            paymentDetails &&
+            selectedMethod !== "nexus_banking" && (
+              <div
+                className="glass-card p-5 mb-6"
+                style={{
+                  borderColor: `${selectedOption?.color.split(")")[0]} / 0.4)`,
+                  animation: "fade-in 0.3s ease-out both",
+                  boxShadow: `0 0 20px ${selectedOption?.color.split(")")[0]} / 0.1)`,
+                }}
+              >
+                <h3 className="font-body font-semibold text-foreground mb-1 flex items-center gap-2">
+                  {selectedOption?.icon}
+                  {selectedMethod === "paypal"
+                    ? "Send payment to this PayPal account:"
+                    : selectedMethod === "bitcoin"
+                      ? "Send Bitcoin to this address:"
+                      : selectedMethod === "ethereum"
+                        ? "Send Ethereum to this address:"
+                        : "Payment Instructions:"}
+                </h3>
 
-              {selectedMethod === "paypal" ||
-              selectedMethod === "bitcoin" ||
-              selectedMethod === "ethereum" ? (
-                <>
-                  {/* Address/username display box */}
-                  <div
-                    className="rounded-lg p-4 mt-3 mb-3 flex items-center justify-between gap-3"
-                    style={{
-                      background: "oklch(0.08 0.04 285)",
-                      border: `1px solid ${selectedOption?.color.split(")")[0]} / 0.25)`,
-                    }}
-                  >
-                    <code
-                      className="font-body text-sm break-all leading-relaxed"
-                      style={{ color: selectedOption?.color }}
+                {selectedMethod === "paypal" ||
+                selectedMethod === "bitcoin" ||
+                selectedMethod === "ethereum" ? (
+                  <>
+                    {/* Address/username display box */}
+                    <div
+                      className="rounded-lg p-4 mt-3 mb-3 flex items-center justify-between gap-3"
+                      style={{
+                        background: "oklch(0.08 0.04 285)",
+                        border: `1px solid ${selectedOption?.color.split(")")[0]} / 0.25)`,
+                      }}
                     >
-                      {paymentDetails}
-                    </code>
+                      <code
+                        className="font-body text-sm break-all leading-relaxed"
+                        style={{ color: selectedOption?.color }}
+                      >
+                        {paymentDetails}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyToClipboard(paymentDetails, selectedMethod)
+                        }
+                        data-ocid="checkout.button"
+                        className="shrink-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors"
+                        title="Copy"
+                      >
+                        {copiedField === selectedMethod ? (
+                          <ClipboardCheck
+                            className="w-4 h-4"
+                            style={{ color: "oklch(0.65 0.2 145)" }}
+                          />
+                        ) : (
+                          <Copy className="w-4 h-4 text-foreground/50" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Prominent copy button */}
                     <button
                       type="button"
                       onClick={() =>
-                        copyToClipboard(paymentDetails, selectedMethod)
+                        copyToClipboard(paymentDetails, `${selectedMethod}-btn`)
                       }
-                      data-ocid="checkout.button"
-                      className="shrink-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors"
-                      title="Copy"
+                      data-ocid="checkout.primary_button"
+                      className="w-full flex items-center justify-center gap-2 rounded-lg py-3 font-body font-semibold text-sm transition-all active:scale-95"
+                      style={{
+                        background:
+                          copiedField === `${selectedMethod}-btn`
+                            ? "oklch(0.55 0.2 145 / 0.2)"
+                            : `${selectedOption?.color.split(")")[0]} / 0.15)`,
+                        border: `1.5px solid ${
+                          copiedField === `${selectedMethod}-btn`
+                            ? "oklch(0.55 0.2 145 / 0.6)"
+                            : `${selectedOption?.color.split(")")[0]} / 0.5)`
+                        }`,
+                        color:
+                          copiedField === `${selectedMethod}-btn`
+                            ? "oklch(0.65 0.2 145)"
+                            : selectedOption?.color,
+                      }}
                     >
-                      {copiedField === selectedMethod ? (
-                        <ClipboardCheck
-                          className="w-4 h-4"
-                          style={{ color: "oklch(0.65 0.2 145)" }}
-                        />
+                      {copiedField === `${selectedMethod}-btn` ? (
+                        <>
+                          <ClipboardCheck className="w-4 h-4" />
+                          Copied!
+                        </>
                       ) : (
-                        <Copy className="w-4 h-4 text-foreground/50" />
+                        <>
+                          <Copy className="w-4 h-4" />
+                          {selectedMethod === "paypal"
+                            ? "Copy PayPal Username"
+                            : selectedMethod === "bitcoin"
+                              ? "Copy Bitcoin Address"
+                              : "Copy Ethereum Address"}
+                        </>
                       )}
                     </button>
-                  </div>
 
-                  {/* Prominent copy button */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      copyToClipboard(paymentDetails, `${selectedMethod}-btn`)
-                    }
-                    data-ocid="checkout.primary_button"
-                    className="w-full flex items-center justify-center gap-2 rounded-lg py-3 font-body font-semibold text-sm transition-all active:scale-95"
-                    style={{
-                      background:
-                        copiedField === `${selectedMethod}-btn`
-                          ? "oklch(0.55 0.2 145 / 0.2)"
-                          : `${selectedOption?.color.split(")")[0]} / 0.15)`,
-                      border: `1.5px solid ${
-                        copiedField === `${selectedMethod}-btn`
-                          ? "oklch(0.55 0.2 145 / 0.6)"
-                          : `${selectedOption?.color.split(")")[0]} / 0.5)`
-                      }`,
-                      color:
-                        copiedField === `${selectedMethod}-btn`
-                          ? "oklch(0.65 0.2 145)"
-                          : selectedOption?.color,
-                    }}
-                  >
-                    {copiedField === `${selectedMethod}-btn` ? (
-                      <>
-                        <ClipboardCheck className="w-4 h-4" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        {selectedMethod === "paypal"
-                          ? "Copy PayPal Username"
-                          : selectedMethod === "bitcoin"
-                            ? "Copy Bitcoin Address"
-                            : "Copy Ethereum Address"}
-                      </>
-                    )}
-                  </button>
-
-                  <p className="text-foreground/50 font-body text-xs mt-3">
-                    {selectedMethod === "paypal"
-                      ? `Send £${(Number(discountedTotal) / 100).toFixed(2)} to the PayPal username above, then enter your PayPal transaction ID below.`
-                      : selectedMethod === "bitcoin"
-                        ? `Send £${(Number(discountedTotal) / 100).toFixed(2)} worth of Bitcoin to the address above, then enter your transaction ID (TxID) below.`
-                        : `Send £${(Number(discountedTotal) / 100).toFixed(2)} worth of Ethereum to the address above, then enter your transaction hash below.`}
-                  </p>
-                </>
-              ) : (
-                /* Gift card instructions -- plain display */
-                <>
-                  <div
-                    className="rounded-lg p-3 mt-3"
-                    style={{ background: "oklch(0.1 0.03 285)" }}
-                  >
-                    <p className="font-body text-sm text-foreground/80 leading-relaxed">
-                      {paymentDetails}
+                    <p className="text-foreground/50 font-body text-xs mt-3">
+                      {selectedMethod === "paypal"
+                        ? `Send £${(Number(discountedTotal) / 100).toFixed(2)} to the PayPal username above, then enter your PayPal transaction ID below.`
+                        : selectedMethod === "bitcoin"
+                          ? `Send £${(Number(discountedTotal) / 100).toFixed(2)} worth of Bitcoin to the address above, then enter your transaction ID (TxID) below.`
+                          : `Send £${(Number(discountedTotal) / 100).toFixed(2)} worth of Ethereum to the address above, then enter your transaction hash below.`}
                     </p>
-                  </div>
-                  <p className="text-foreground/50 font-body text-xs mt-2">
-                    Follow the instructions above, then enter your gift card
-                    code below.
+                  </>
+                ) : (
+                  /* Gift card instructions -- plain display */
+                  <>
+                    <div
+                      className="rounded-lg p-3 mt-3"
+                      style={{ background: "oklch(0.1 0.03 285)" }}
+                    >
+                      <p className="font-body text-sm text-foreground/80 leading-relaxed">
+                        {paymentDetails}
+                      </p>
+                    </div>
+                    <p className="text-foreground/50 font-body text-xs mt-2">
+                      Follow the instructions above, then enter your gift card
+                      code below.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
+          {/* Nexus Banking card form */}
+          {selectedMethod === "nexus_banking" && (
+            <div
+              className="glass-card p-5 mb-6"
+              style={{
+                borderColor: "oklch(0.65 0.2 200 / 0.4)",
+                animation: "fade-in 0.3s ease-out both",
+                boxShadow: "0 0 20px oklch(0.65 0.2 200 / 0.1)",
+              }}
+              data-ocid="checkout.card"
+            >
+              {/* Nexus Banking header */}
+              <div className="flex items-center gap-2.5 mb-4">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: "oklch(0.65 0.2 200 / 0.18)",
+                    border: "1px solid oklch(0.65 0.2 200 / 0.4)",
+                  }}
+                >
+                  <CreditCard
+                    className="w-4.5 h-4.5"
+                    style={{ color: "oklch(0.75 0.2 200)" }}
+                  />
+                </div>
+                <div>
+                  <p
+                    className="font-body font-bold text-sm"
+                    style={{ color: "oklch(0.85 0.18 200)" }}
+                  >
+                    Nexus Banking
                   </p>
-                </>
-              )}
+                  <p className="font-body text-xs text-foreground/50">
+                    Secure card payment
+                  </p>
+                </div>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <Lock
+                    className="w-3.5 h-3.5"
+                    style={{ color: "oklch(0.65 0.2 145)" }}
+                  />
+                  <span
+                    className="font-body text-xs"
+                    style={{ color: "oklch(0.65 0.2 145)" }}
+                  >
+                    Encrypted
+                  </span>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div
+                className="border-t mb-4"
+                style={{ borderColor: "oklch(0.65 0.2 200 / 0.2)" }}
+              />
+
+              {/* Card Number */}
+              <div className="space-y-1.5 mb-4">
+                <Label className="font-body text-sm text-foreground/70 block">
+                  Card Number{" "}
+                  <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
+                </Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={cardNumber}
+                  onChange={(e) => {
+                    // Format with spaces every 4 digits
+                    const raw = e.target.value.replace(/\D/g, "").slice(0, 16);
+                    const formatted = raw.match(/.{1,4}/g)?.join(" ") ?? raw;
+                    setCardNumber(formatted);
+                  }}
+                  placeholder="1234 5678 9012 3456"
+                  maxLength={19}
+                  className="font-mono tracking-wider"
+                  data-ocid="checkout.input"
+                  style={{
+                    background: "oklch(0.12 0.06 200)",
+                    borderColor: "oklch(0.65 0.2 200 / 0.35)",
+                    color: "white",
+                  }}
+                />
+              </div>
+
+              {/* Expiry + CVV row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="font-body text-sm text-foreground/70 block">
+                    Expiry Date{" "}
+                    <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={cardExpiry}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      // Auto-insert slash after 2 digits
+                      const formatted =
+                        raw.length > 2
+                          ? `${raw.slice(0, 2)}/${raw.slice(2)}`
+                          : raw;
+                      setCardExpiry(formatted);
+                    }}
+                    placeholder="MM/YY"
+                    maxLength={5}
+                    className="font-mono tracking-wider"
+                    data-ocid="checkout.input"
+                    style={{
+                      background: "oklch(0.12 0.06 200)",
+                      borderColor: "oklch(0.65 0.2 200 / 0.35)",
+                      color: "white",
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-sm text-foreground/70 block flex items-center gap-1">
+                    CVV <span style={{ color: "oklch(0.62 0.27 355)" }}>*</span>
+                  </Label>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    value={cardCvv}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      setCardCvv(raw);
+                    }}
+                    placeholder="CVV"
+                    maxLength={4}
+                    className="font-mono tracking-wider"
+                    data-ocid="checkout.input"
+                    style={{
+                      background: "oklch(0.12 0.06 200)",
+                      borderColor: "oklch(0.65 0.2 200 / 0.35)",
+                      color: "white",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <p
+                className="font-body text-xs mt-3 flex items-center gap-1"
+                style={{ color: "oklch(0.65 0.2 200 / 0.7)" }}
+              >
+                <Lock className="w-3 h-3 shrink-0" />
+                Your card details are used only for this transaction and only
+                the last 4 digits are stored.
+              </p>
             </div>
           )}
 
-          {/* Payment reference input */}
-          {selectedMethod && (
+          {/* Payment reference input — hidden for Nexus Banking */}
+          {selectedMethod && selectedMethod !== "nexus_banking" && (
             <div
               className="mb-8"
               style={{ animation: "fade-in 0.3s ease-out both" }}
@@ -844,10 +1046,17 @@ export function CheckoutPage({
             </div>
           )}
 
+          {/* Spacer for Nexus Banking (no ref input needed) */}
+          {selectedMethod === "nexus_banking" && <div className="mb-8" />}
+
           <Button
             className="btn-gradient text-white font-body font-bold text-base w-full py-6 h-auto"
             onClick={() => void handlePlaceOrder()}
-            disabled={isPlacing || !selectedMethod || !paymentRef.trim()}
+            disabled={
+              isPlacing ||
+              !selectedMethod ||
+              (selectedMethod !== "nexus_banking" && !paymentRef.trim())
+            }
             data-ocid="checkout.submit_button"
           >
             {isPlacing ? (

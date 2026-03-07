@@ -10,11 +10,11 @@ import Runtime "mo:core/Runtime";
 import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import Iter "mo:core/Iter";
-import Migration "migration";
+
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 
-(with migration = Migration.run)
+
 actor {
   type Username = Text;
 
