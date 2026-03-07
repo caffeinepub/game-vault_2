@@ -23,7 +23,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 export default function App() {
-  const { actor, isFetching: isActorFetching } = useActor();
+  const { actor } = useActor();
   const { clear: clearIdentity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
@@ -42,18 +42,30 @@ export default function App() {
     queryKey: ["products"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.listAvailableProducts();
+      try {
+        return await actor.listAvailableProducts();
+      } catch {
+        return [];
+      }
     },
-    enabled: !!actor && !isActorFetching,
+    enabled: !!actor,
+    retry: 1,
+    staleTime: 30_000,
   });
 
   const { data: packages = [], isLoading: isLoadingPackages } = useQuery({
     queryKey: ["packages"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.listActivePackages();
+      try {
+        return await actor.listActivePackages();
+      } catch {
+        return [];
+      }
     },
-    enabled: !!actor && !isActorFetching,
+    enabled: !!actor,
+    retry: 1,
+    staleTime: 30_000,
   });
 
   const { data: paymentSettings = null } = useQuery<PaymentSettings | null>({
@@ -62,7 +74,8 @@ export default function App() {
       if (!actor) return null;
       return actor.getPaymentSettings();
     },
-    enabled: !!actor && !isActorFetching,
+    enabled: !!actor,
+    retry: false,
   });
 
   // Active ads (shown to non-members)
@@ -70,9 +83,14 @@ export default function App() {
     queryKey: ["activeAds"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.listActiveAds();
+      try {
+        return await actor.listActiveAds();
+      } catch {
+        return [];
+      }
     },
-    enabled: !!actor && !isActorFetching,
+    enabled: !!actor,
+    retry: 1,
   });
 
   // Membership status (only when user is logged in)
@@ -81,9 +99,14 @@ export default function App() {
       queryKey: ["activeMembership", userProfile?.username],
       queryFn: async () => {
         if (!actor || !userProfile) return false;
-        return actor.checkActiveMembership(userProfile.username);
+        try {
+          return await actor.checkActiveMembership(userProfile.username);
+        } catch {
+          return false;
+        }
       },
-      enabled: !!actor && !isActorFetching && !!userProfile,
+      enabled: !!actor && !!userProfile,
+      retry: false,
     });
 
   const { data: membershipStatus = null, refetch: refetchMembershipStatus } =
@@ -91,9 +114,14 @@ export default function App() {
       queryKey: ["membershipStatus", userProfile?.username],
       queryFn: async () => {
         if (!actor || !userProfile) return null;
-        return actor.getMembershipStatus(userProfile.username);
+        try {
+          return await actor.getMembershipStatus(userProfile.username);
+        } catch {
+          return null;
+        }
       },
-      enabled: !!actor && !isActorFetching && !!userProfile,
+      enabled: !!actor && !!userProfile,
+      retry: false,
     });
 
   // ---- Navigation ----
@@ -198,7 +226,11 @@ export default function App() {
   const handleLoadOrders = useCallback(
     async (username: string): Promise<Order[]> => {
       if (!actor) return [];
-      return actor.getCustomerOrders(username);
+      try {
+        return await actor.getCustomerOrders(username);
+      } catch {
+        return [];
+      }
     },
     [actor],
   );
