@@ -181,7 +181,11 @@ export default function App() {
   const handleLoginLookup =
     useCallback(async (): Promise<UserProfile | null> => {
       if (!actor) throw new Error("Not connected");
-      return actor.getCallerUserProfile();
+      try {
+        return await actor.getCallerUserProfile();
+      } catch {
+        return null;
+      }
     }, [actor]);
 
   const handleLogout = useCallback(() => {

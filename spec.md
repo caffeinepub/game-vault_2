@@ -1,34 +1,28 @@
 # Game Vault
 
 ## Current State
-
-The app has a checkout page (`CheckoutPage.tsx`) with payment methods: PayPal, Bitcoin, Ethereum, Xbox/Amazon/Etsy gift cards. Payment settings are stored in `PaymentSettings` which has fields: `paypalEmail`, `bitcoinWallet`, `ethereumWallet`, `xboxInstructions`, `amazonInstructions`, `etsyInstructions`.
-
-The admin panel (`AdminPage.tsx`) has a `PaymentSettingsTab` that allows saving the above fields. The admin panel also has an `OrdersTab` where admins can accept or decline orders.
+- Users log in via Internet Identity and the AuthPage handles registration/login.
+- CheckoutPage already has Nexus Banking implemented in the frontend code, but it is gated behind `nexusBankingEnabled` flag from `paymentSettings`. The backend `PaymentSettings` type does NOT include Nexus Banking fields.
+- `getCustomerOrders` in the backend checks for a user profile via caller principal and traps if not found, causing login/order loading failures for users whose profile lookup fails.
+- The Nexus Banking option is hidden in checkout unless the admin toggles it on from Admin Panel > Payment Settings. The frontend correctly handles card number, expiry, CVV fields.
 
 ## Requested Changes (Diff)
 
 ### Add
-- A new payment method called **Nexus Banking** in the checkout payment method selector
-- Nexus Banking payment form: card number input, expiry date input, CVV input (shown when Nexus Banking is selected at checkout)
-- When user selects Nexus Banking and fills in card details, these are stored as the `paymentReference` (formatted as `CARD:xxxx|EXP:xx/xx|CVV:xxx`)
-- In the Admin Panel > Payment Settings tab: add a "Nexus Banking" settings section with a toggle to enable/disable the payment provider, and a display name/description field (e.g. the merchant name or account info)
-- In the Admin Panel > Orders tab: Nexus Banking orders show the card details (card number, expiry, CVV) so admin can see and process the payment; admins can then accept or decline
+- Nexus Bank payment should always be visible at checkout (not gated by a backend flag) since the admin shouldn't need to enable it separately.
+- Nexus Bank card details form (card number, expiry, CVV) should be clearly shown at checkout when selected.
 
 ### Modify
-- `PaymentSettings` interface in the frontend: add `nexusBankingEnabled: boolean` and `nexusBankingMerchantName: string` fields
-- `CheckoutPage.tsx`: add Nexus Banking as a payment option; when selected, show card number/expiry/CVV form fields instead of the copy-address flow; validate card fields before placing order
-- `AdminPage.tsx` > `PaymentSettingsTab`: add Nexus Banking section with enable toggle and merchant name field
-- `AdminPage.tsx` > `OrdersTab` / `OrderEmailModal`: when order's paymentMethod is "nexus_banking", parse and display card details from `paymentReference` field
+- Fix `getCustomerOrders` backend function: remove the hard trap when profile is not found — instead allow the lookup to proceed (or just check username match more leniently), so logged-in users who lost their session profile can still load orders.
+- Make Nexus Banking always available at checkout on the frontend (remove the `nexusBankingEnabled` filter gate).
+- The Admin Panel already shows Nexus Banking card details in order view — keep that.
+- AuthPage: Improve the login flow to not silently fail — surface better error states for returning users.
 
 ### Remove
-- Nothing removed
+- Nothing removed.
 
 ## Implementation Plan
-
-1. Update `PaymentSettings` type usage in frontend to include `nexusBankingEnabled` and `nexusBankingMerchantName` (frontend-only, no backend change needed — these can be stored in the existing `savePaymentSettings` using the existing interface by treating them as new fields on the object; the backend already stores PaymentSettings as a flexible record)
-2. In `CheckoutPage.tsx`: add `nexus_banking` to `PaymentMethod` type; add Nexus Banking option to `PAYMENT_OPTIONS` array; add conditional card detail form (card number, expiry date, CVV) when Nexus Banking is selected; validate card fields; format card data into `paymentReference`
-3. In `AdminPage.tsx` > `PaymentSettingsTab`: add Nexus Banking section with enabled toggle + merchant name input
-4. In `AdminPage.tsx` > `OrdersTab` order card: detect `paymentMethod === "nexus_banking"`, parse card details from `paymentReference`, display masked card number + expiry + CVV for admin review
-5. In `AdminPage.tsx` > `OrderEmailModal`: show parsed card details when payment method is Nexus Banking
-6. Update `backend.d.ts` to add `nexusBankingEnabled` and `nexusBankingMerchantName` to `PaymentSettings` interface
+1. Fix `getCustomerOrders` in `main.mo` to not trap when user profile not found via caller — just check username match or allow if profile lookup returns null (since the username is passed explicitly).
+2. In `CheckoutPage.tsx`, remove the `nexusBankingEnabled` filter so Nexus Banking is always shown.
+3. Ensure the Nexus Banking form (card number, expiry, CVV) is fully functional and visible when selected.
+4. Improve `AuthPage.tsx` login error handling so users see clear messages if something fails.

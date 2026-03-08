@@ -153,13 +153,8 @@ export function CheckoutPage({
   // Delivery email state
   const [deliveryEmail, setDeliveryEmail] = useState(userProfile?.email ?? "");
 
-  // Filter payment options based on settings
-  const PAYMENT_OPTIONS = ALL_PAYMENT_OPTIONS.filter((opt) => {
-    if (opt.id === "nexus_banking") {
-      return paymentSettings?.nexusBankingEnabled === true;
-    }
-    return true;
-  });
+  // Always show all payment options including Nexus Banking
+  const PAYMENT_OPTIONS = ALL_PAYMENT_OPTIONS;
 
   // Coupon state
   const [couponInput, setCouponInput] = useState("");

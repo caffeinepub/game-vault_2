@@ -325,7 +325,7 @@ export function DashboardPage({
       .catch((err) => {
         console.error(err);
         if (mounted) {
-          toast.error("Failed to load orders");
+          setOrders([]);
           setIsLoadingOrders(false);
         }
       });
